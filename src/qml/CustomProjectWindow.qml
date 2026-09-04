@@ -117,6 +117,9 @@ Window {
     function toFileUrl(path) {
         if (!path || path.length === 0) return ""
         var p = urlToLocalPath(path)
+        if (typeof CustomProject !== "undefined" && CustomProject.fileUrl) {
+            return CustomProject.fileUrl(p)
+        }
         if (typeof EditorState !== "undefined" && EditorState.fileUrl) {
             return EditorState.fileUrl(p)
         }
@@ -129,6 +132,13 @@ Window {
         audioOutput: AudioOutput {
             id: previewAudioOutput
             volume: 1.0
+        }
+        onMediaStatusChanged: {
+            if (mediaStatus === MediaPlayer.EndOfMedia) {
+                playingAudioSource = ""
+                previewAudioPlayer.stop()
+                previewAudioPlayer.setPosition(0)
+            }
         }
     }
     property string playingAudioSource: ""
@@ -147,13 +157,15 @@ Window {
         if (volumeDb !== undefined && volumeDb !== null) {
             gain = Math.pow(10.0, volumeDb / 20.0)
         }
-        previewAudioOutput.volume = Math.max(0.0, Math.min(1.0, gain))
+        previewAudioOutput.volume = Math.max(0.0, gain)
         previewAudioPlayer.source = toFileUrl(local)
+        previewAudioPlayer.setPosition(0)
         previewAudioPlayer.play()
     }
 
     function stopAudioPreview() {
         previewAudioPlayer.stop()
+        previewAudioPlayer.setPosition(0)
         playingAudioSource = ""
     }
 
@@ -663,6 +675,54 @@ Window {
                         }
                     }
 
+                    // Quick Navigation & Scene Search Bar
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+
+                        ThemedTextField {
+                            id: sceneSearchField
+                            placeholderText: qsTr("Ir para cena # (ex: 45)...")
+                            Layout.preferredWidth: 200
+                            onAccepted: jumpToScene()
+                        }
+                        ThemedButton {
+                            text: qsTr("Ir para Cena")
+                            variant: "secondary"
+                            glyph: Theme.icons.search
+                            onClicked: jumpToScene()
+                        }
+
+                        function jumpToScene() {
+                            const num = parseInt(sceneSearchField.text.trim())
+                            if (!isNaN(num) && num > 0) {
+                                for (let i = 0; i < CustomProject.candidateScenes.length; ++i) {
+                                    if (CustomProject.candidateScenes[i].sceneNumber === num) {
+                                        scenesList.positionViewAtIndex(i, ListView.Beginning)
+                                        return
+                                    }
+                                }
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        ThemedButton {
+                            visible: CustomProject.conflictScenesCount > 0
+                            text: qsTr("Ir para Próximo Conflito")
+                            variant: "ghost"
+                            glyph: Theme.icons.warning
+                            onClicked: {
+                                for (let i = 0; i < CustomProject.candidateScenes.length; ++i) {
+                                    if (CustomProject.candidateScenes[i].isConflict) {
+                                        scenesList.positionViewAtIndex(i, ListView.Beginning)
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Scenes ListView
                     Rectangle {
                         Layout.fillWidth: true
@@ -680,9 +740,15 @@ Window {
                             model: CustomProject.candidateScenes
                             spacing: 4
 
+                            ScrollBar.vertical: ScrollBar {
+                                id: scenesListScrollBar
+                                active: true
+                                policy: ScrollBar.AlwaysOn
+                            }
+
                             delegate: Rectangle {
                                 id: sceneRow
-                                width: scenesList.width
+                                width: scenesList.width - (scenesListScrollBar.visible ? scenesListScrollBar.width + 4 : 0)
                                 height: 44
                                 radius: Theme.radiusSm
                                 color: modelData.isConflict ? Qt.rgba(1, 0.7, 0, 0.15) : (modelData.isEmpty ? Qt.rgba(1, 1, 1, 0.03) : Theme.panelBackground)
@@ -771,7 +837,10 @@ Window {
                                         text: qsTr("Substituir...")
                                         variant: "secondary"
                                         onClicked: {
-                                            const url = FileDialogs.openFile(qsTr("Selecionar Mídia para Cena #%1").arg(modelData.sceneNumber))
+                                            const url = FileDialogs.openFile(
+                                                qsTr("Selecionar Mídia para Cena #%1").arg(modelData.sceneNumber),
+                                                [qsTr("Arquivos de Vídeo e Imagem (*.mp4 *.mov *.png *.jpg *.jpeg *.webp *.gif *.bmp *.mkv *.webm *.avi)"), qsTr("Todos os Arquivos (*.*)")]
+                                            )
                                             if (url && url.toString().length > 0) {
                                                 const p = urlToLocalPath(url)
                                                 CustomProject.setSceneOverride(modelData.sceneNumber, p)
@@ -878,12 +947,12 @@ Window {
                         ThemedSlider {
                             width: 220
                             from: -40.0
-                            to: 0.0
+                            to: 15.0
                             value: root.sceneAudioVolumeDb
                             onValueChanged: root.sceneAudioVolumeDb = Math.round(value * 10) / 10
                         }
                         Text {
-                            text: root.sceneAudioVolumeDb + " dB"
+                            text: (root.sceneAudioVolumeDb > 0 ? "+" : "") + root.sceneAudioVolumeDb + " dB"
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.panelForeground
@@ -892,24 +961,25 @@ Window {
                             text: playingAudioSource === "scene_volume_test" && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar") : qsTr("Ouvir Volume de Teste")
                             variant: "ghost"
                             glyph: playingAudioSource === "scene_volume_test" && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
-                            enabled: CustomProject.scenesModel.length > 0
+                            enabled: CustomProject.candidateScenes.length > 0
                             onClicked: {
                                 if (playingAudioSource === "scene_volume_test" && previewAudioPlayer.playbackState === MediaPlayer.PlayingState) {
                                     stopAudioPreview()
                                     return
                                 }
                                 var samplePath = ""
-                                for (var i = 0; i < CustomProject.scenesModel.length; ++i) {
-                                    if (CustomProject.scenesModel[i].path && CustomProject.scenesModel[i].path.length > 0) {
-                                        samplePath = CustomProject.scenesModel[i].path
+                                for (var i = 0; i < CustomProject.candidateScenes.length; ++i) {
+                                    if (CustomProject.candidateScenes[i].path && CustomProject.candidateScenes[i].path.length > 0) {
+                                        samplePath = CustomProject.candidateScenes[i].path
                                         break
                                     }
                                 }
                                 if (samplePath.length > 0) {
                                     playingAudioSource = "scene_volume_test"
                                     var gain = Math.pow(10.0, root.sceneAudioVolumeDb / 20.0)
-                                    previewAudioOutput.volume = Math.max(0.0, Math.min(1.0, gain))
+                                    previewAudioOutput.volume = Math.max(0.0, gain)
                                     previewAudioPlayer.source = toFileUrl(samplePath)
+                                    previewAudioPlayer.setPosition(0)
                                     previewAudioPlayer.play()
                                 }
                             }
@@ -1025,14 +1095,14 @@ Window {
                             color: Theme.panelMuted
                         }
                         ThemedSlider {
-                            width: 200
-                            from: -20.0
-                            to: 6.0
+                            width: 220
+                            from: -40.0
+                            to: 15.0
                             value: root.narrationVolumeDb
                             onValueChanged: root.narrationVolumeDb = Math.round(value * 10) / 10
                         }
                         Text {
-                            text: root.narrationVolumeDb + " dB"
+                            text: (root.narrationVolumeDb > 0 ? "+" : "") + root.narrationVolumeDb + " dB"
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.panelForeground
@@ -1094,9 +1164,12 @@ Window {
                                         list.push({
                                             path: p,
                                             label: baseName || ("Música " + (list.length + 1)),
-                                            volumeDb: -17.0,
+                                            volumeDb: -12.0,
                                             silenceBoost: true,
                                             boostTargetDb: -3.0,
+                                            startScene: 0,
+                                            endScene: 0,
+                                            loop: false,
                                             minSilenceSeconds: 2.0,
                                             rampSeconds: 0.5,
                                             fadeInSeconds: 0.5,
@@ -1118,87 +1191,158 @@ Window {
 
                         delegate: Rectangle {
                             width: parent.width
-                            height: 64
+                            height: 84
                             color: Theme.panelBackground
                             border.color: Theme.panelBorder
                             border.width: 1
                             radius: Theme.radiusSm
 
-                            RowLayout {
+                            ColumnLayout {
                                 anchors.fill: parent
-                                anchors.margins: Theme.spacingMd
-                                spacing: Theme.spacingMd
+                                anchors.margins: Theme.spacingSm
+                                spacing: 4
 
-                                Text {
-                                    text: modelData.label || "Música"
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeSm
-                                    font.weight: Font.DemiBold
-                                    color: Theme.panelForeground
-                                    Layout.preferredWidth: 110
-                                    elide: Text.ElideRight
-                                }
-                                Text {
-                                    text: modelData.path
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeXs
-                                    color: Theme.panelMuted
-                                    elide: Text.ElideMiddle
+                                RowLayout {
                                     Layout.fillWidth: true
-                                }
-                                Text {
-                                    text: qsTr("Vol:")
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeXs
-                                    color: Theme.panelMuted
-                                }
-                                ThemedSlider {
-                                    Layout.preferredWidth: 120
-                                    from: -40.0
-                                    to: 0.0
-                                    value: (modelData.volumeDb !== undefined) ? modelData.volumeDb : -17.0
-                                    onValueChanged: {
-                                        const rounded = Math.round(value * 10) / 10
-                                        if (modelData.volumeDb !== rounded) {
+                                    spacing: Theme.spacingMd
+
+                                    Text {
+                                        text: modelData.label || "Música"
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeSm
+                                        font.weight: Font.DemiBold
+                                        color: Theme.panelForeground
+                                        Layout.preferredWidth: 120
+                                        elide: Text.ElideRight
+                                    }
+                                    Text {
+                                        text: modelData.path
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: Theme.panelMuted
+                                        elide: Text.ElideMiddle
+                                        Layout.fillWidth: true
+                                    }
+                                    Text {
+                                        text: qsTr("Vol:")
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: Theme.panelMuted
+                                    }
+                                    ThemedSlider {
+                                        Layout.preferredWidth: 120
+                                        from: -40.0
+                                        to: 15.0
+                                        value: (modelData.volumeDb !== undefined) ? modelData.volumeDb : -12.0
+                                        onValueChanged: {
+                                            const rounded = Math.round(value * 10) / 10
+                                            if (modelData.volumeDb !== rounded) {
+                                                const list = root.musicList.slice()
+                                                list[index].volumeDb = rounded
+                                                root.musicList = list
+                                            }
+                                        }
+                                    }
+                                    Text {
+                                        text: ((modelData.volumeDb > 0) ? "+" : "") + ((modelData.volumeDb !== undefined) ? modelData.volumeDb : -12.0) + " dB"
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: Theme.panelForeground
+                                        Layout.preferredWidth: 52
+                                    }
+                                    ThemedCheckBox {
+                                        text: qsTr("Boost")
+                                        checked: modelData.silenceBoost !== undefined ? modelData.silenceBoost : true
+                                        onCheckedChanged: {
                                             const list = root.musicList.slice()
-                                            list[index].volumeDb = rounded
+                                            list[index].silenceBoost = checked
+                                            root.musicList = list
+                                        }
+                                    }
+                                    ThemedCheckBox {
+                                        text: qsTr("Loop")
+                                        checked: modelData.loop !== undefined ? modelData.loop : false
+                                        onCheckedChanged: {
+                                            const list = root.musicList.slice()
+                                            list[index].loop = checked
+                                            root.musicList = list
+                                        }
+                                    }
+                                    ThemedButton {
+                                        text: playingAudioSource === urlToLocalPath(modelData.path) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar") : qsTr("Ouvir")
+                                        variant: "ghost"
+                                        glyph: playingAudioSource === urlToLocalPath(modelData.path) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
+                                        onClicked: playAudioPreview(modelData.path, modelData.volumeDb !== undefined ? modelData.volumeDb : -12.0)
+                                    }
+                                    ThemedButton {
+                                        text: qsTr("Remover")
+                                        variant: "ghost"
+                                        onClicked: {
+                                            if (playingAudioSource === urlToLocalPath(modelData.path)) {
+                                                stopAudioPreview()
+                                            }
+                                            const list = root.musicList.slice()
+                                            list.splice(index, 1)
                                             root.musicList = list
                                         }
                                     }
                                 }
-                                Text {
-                                    text: (modelData.volumeDb !== undefined ? modelData.volumeDb : -17.0) + " dB"
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeXs
-                                    color: Theme.panelForeground
-                                    Layout.preferredWidth: 50
-                                }
-                                ThemedCheckBox {
-                                    text: qsTr("Boost")
-                                    checked: modelData.silenceBoost !== undefined ? modelData.silenceBoost : true
-                                    onCheckedChanged: {
-                                        const list = root.musicList.slice()
-                                        list[index].silenceBoost = checked
-                                        root.musicList = list
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingMd
+
+                                    Text {
+                                        text: qsTr("Início na Cena #:")
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: Theme.panelMuted
                                     }
-                                }
-                                ThemedButton {
-                                    text: playingAudioSource === urlToLocalPath(modelData.path) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar") : qsTr("Ouvir")
-                                    variant: "ghost"
-                                    glyph: playingAudioSource === urlToLocalPath(modelData.path) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
-                                    onClicked: playAudioPreview(modelData.path, modelData.volumeDb !== undefined ? modelData.volumeDb : -17.0)
-                                }
-                                ThemedButton {
-                                    text: qsTr("Remover")
-                                    variant: "ghost"
-                                    onClicked: {
-                                        if (playingAudioSource === urlToLocalPath(modelData.path)) {
-                                            stopAudioPreview()
+                                    ThemedTextField {
+                                        Layout.preferredWidth: 55
+                                        text: (modelData.startScene !== undefined && modelData.startScene > 0) ? String(modelData.startScene) : "0"
+                                        placeholderText: "0"
+                                        onEditingFinished: {
+                                            const val = parseInt(text) || 0
+                                            const list = root.musicList.slice()
+                                            list[index].startScene = Math.max(0, val)
+                                            root.musicList = list
                                         }
-                                        const list = root.musicList.slice()
-                                        list.splice(index, 1)
-                                        root.musicList = list
                                     }
+                                    Text {
+                                        text: "(0 = início)"
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: 10
+                                        color: Theme.panelMuted
+                                    }
+
+                                    Item { Layout.preferredWidth: Theme.spacingMd }
+
+                                    Text {
+                                        text: qsTr("Fim na Cena #:")
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: Theme.panelMuted
+                                    }
+                                    ThemedTextField {
+                                        Layout.preferredWidth: 55
+                                        text: (modelData.endScene !== undefined && modelData.endScene > 0) ? String(modelData.endScene) : "0"
+                                        placeholderText: "0"
+                                        onEditingFinished: {
+                                            const val = parseInt(text) || 0
+                                            const list = root.musicList.slice()
+                                            list[index].endScene = Math.max(0, val)
+                                            root.musicList = list
+                                        }
+                                    }
+                                    Text {
+                                        text: "(0 = fim do vídeo)"
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: 10
+                                        color: Theme.panelMuted
+                                    }
+
+                                    Item { Layout.fillWidth: true }
                                 }
                             }
                         }
@@ -1387,13 +1531,13 @@ Window {
                             }
                             ThemedSlider {
                                 width: 170
-                                from: -30.0
-                                to: 6.0
+                                from: -40.0
+                                to: 15.0
                                 value: root.ctaBellVolumeDb
                                 onValueChanged: root.ctaBellVolumeDb = Math.round(value * 10) / 10
                             }
                             Text {
-                                text: root.ctaBellVolumeDb + " dB"
+                                text: (root.ctaBellVolumeDb > 0 ? "+" : "") + root.ctaBellVolumeDb + " dB"
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeSm
                                 color: Theme.panelForeground
@@ -1511,6 +1655,8 @@ Window {
                                     RowLayout {
                                         spacing: Theme.spacingMd
                                         ThemedButton {
+                                            Layout.preferredWidth: 280
+                                            Layout.preferredHeight: 38
                                             text: ctaIsPlayingPreview ? qsTr("Parar Preview") : qsTr("Testar Preview CTA (Visual + Sino)")
                                             variant: "primary"
                                             glyph: ctaIsPlayingPreview ? Theme.icons.pause : Theme.icons.play
@@ -1637,13 +1783,13 @@ Window {
                             }
                             ThemedSlider {
                                 width: 200
-                                from: -30.0
-                                to: 6.0
+                                from: -40.0
+                                to: 15.0
                                 value: root.brollKeyboardVolumeDb
                                 onValueChanged: root.brollKeyboardVolumeDb = Math.round(value * 10) / 10
                             }
                             Text {
-                                text: root.brollKeyboardVolumeDb + " dB"
+                                text: (root.brollKeyboardVolumeDb > 0 ? "+" : "") + root.brollKeyboardVolumeDb + " dB"
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeSm
                                 color: Theme.panelForeground
@@ -1803,13 +1949,13 @@ Window {
                         }
                         ThemedSlider {
                             width: 200
-                            from: -30.0
-                            to: 6.0
+                            from: -40.0
+                            to: 15.0
                             value: root.transitionWhooshVolumeDb
                             onValueChanged: root.transitionWhooshVolumeDb = Math.round(value * 10) / 10
                         }
                         Text {
-                            text: root.transitionWhooshVolumeDb + " dB"
+                            text: (root.transitionWhooshVolumeDb > 0 ? "+" : "") + root.transitionWhooshVolumeDb + " dB"
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.panelForeground
@@ -1841,46 +1987,152 @@ Window {
             }
 
             // TAB 7: REVIEW & ASSEMBLE
+            // TAB 7: REVIEW & ASSEMBLE
             Item {
+                id: reviewTabItem
                 anchors.fill: parent
                 visible: root.activeTab === "review"
+
+                property var planSummary: ({})
+                property bool flowIsPlaying: false
+                property double flowPlayheadSeconds: 0.0
+                property var currentSceneAction: null
+                property string currentCueText: ""
+
+                function formatTimecode(secs) {
+                    if (!secs || isNaN(secs) || secs < 0) secs = 0
+                    const m = Math.floor(secs / 60)
+                    const s = Math.floor(secs % 60)
+                    const mm = (m < 10 ? "0" : "") + m
+                    const ss = (s < 10 ? "0" : "") + s
+                    return mm + ":" + ss
+                }
+
+                MediaPlayer {
+                    id: flowNarrPlayer
+                    audioOutput: AudioOutput {
+                        id: flowNarrAudioOutput
+                        volume: Math.max(0.0, Math.pow(10.0, root.narrationVolumeDb / 20.0))
+                    }
+                    onPositionChanged: {
+                        if (flowIsPlaying && playbackState === MediaPlayer.PlayingState) {
+                            flowPlayheadSeconds = position / 1000.0
+                            updateFlowState()
+                        }
+                    }
+                    onMediaStatusChanged: {
+                        if (mediaStatus === MediaPlayer.EndOfMedia) {
+                            pauseFlow()
+                            flowPlayheadSeconds = 0
+                            setPosition(0)
+                            updateFlowState()
+                        }
+                    }
+                }
+
+                Timer {
+                    id: flowTimer
+                    interval: 33
+                    repeat: true
+                    running: flowIsPlaying && (!root.narrationPath || root.narrationPath.length === 0)
+                    onTriggered: {
+                        flowPlayheadSeconds += 0.033
+                        const totalSec = Math.max(1.0, CustomProject.planDurationSeconds)
+                        if (flowPlayheadSeconds >= totalSec) {
+                            pauseFlow()
+                            flowPlayheadSeconds = 0
+                        }
+                        updateFlowState()
+                    }
+                }
+
+                function updateFlowState() {
+                    const actions = planSummary.sceneActions || []
+                    let found = null
+                    for (let i = 0; i < actions.length; ++i) {
+                        const a = actions[i]
+                        if (flowPlayheadSeconds >= a.timelineStartSeconds && flowPlayheadSeconds < (a.timelineStartSeconds + a.timelineDurationSeconds)) {
+                            found = a
+                            break
+                        }
+                    }
+                    currentSceneAction = found
+                    if (found) {
+                        currentCueText = found.cueText || ""
+                        if (found.mediaPath && found.mediaPath.length > 0) {
+                            flowMonitorImage.source = toFileUrl(found.mediaPath)
+                        } else {
+                            flowMonitorImage.source = ""
+                        }
+                    } else {
+                        currentCueText = ""
+                        flowMonitorImage.source = ""
+                    }
+                }
+
+                function toggleFlowPlay() {
+                    if (flowIsPlaying) {
+                        pauseFlow()
+                    } else {
+                        playFlow()
+                    }
+                }
+
+                function playFlow() {
+                    stopAudioPreview()
+                    if (!planSummary.sceneActions || planSummary.sceneActions.length === 0) {
+                        runValidation()
+                    }
+                    flowIsPlaying = true
+                    if (root.narrationPath && root.narrationPath.length > 0) {
+                        flowNarrPlayer.source = toFileUrl(root.narrationPath)
+                        flowNarrPlayer.setPosition(Math.round(flowPlayheadSeconds * 1000))
+                        flowNarrPlayer.play()
+                    }
+                    updateFlowState()
+                }
+
+                function pauseFlow() {
+                    flowIsPlaying = false
+                    flowNarrPlayer.pause()
+                }
+
+                function seekFlow(targetSec) {
+                    flowPlayheadSeconds = targetSec
+                    if (root.narrationPath && root.narrationPath.length > 0) {
+                        flowNarrPlayer.setPosition(Math.round(targetSec * 1000))
+                    }
+                    updateFlowState()
+                }
+
+                function runValidation() {
+                    planSummary = CustomProject.buildPlanSummary(root.syncToProfile())
+                    updateFlowState()
+                }
 
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: Theme.spacingLg
-                    spacing: Theme.spacingLg
+                    spacing: Theme.spacingMd
 
-                    Text {
-                        text: qsTr("Revisão e Montagem Final do Projeto")
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeLg
-                        font.weight: Font.Bold
-                        color: Theme.panelForeground
-                    }
-
+                    // Top Bar: Validation & Status
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: Theme.spacingMd
 
                         ThemedButton {
-                            text: qsTr("Validar Projeto")
+                            text: qsTr("Validar e Analisar Projeto")
                             glyph: Theme.icons.check
-                            variant: "secondary"
-                            onClicked: CustomProject.buildPlanSummary(root.syncToProfile())
-                        }
-
-                        ThemedButton {
-                            text: playingAudioSource === urlToLocalPath(root.narrationPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar") : qsTr("Preview Narração")
-                            glyph: playingAudioSource === urlToLocalPath(root.narrationPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
-                            variant: "ghost"
-                            enabled: root.narrationPath.length > 0
-                            onClicked: playAudioPreview(root.narrationPath, root.narrationVolumeDb)
+                            variant: "primary"
+                            onClicked: runValidation()
                         }
 
                         Item { Layout.fillWidth: true }
 
                         Text {
-                            text: CustomProject.planValid ? qsTr("Plano Válido! Duração Estimada: %1s").arg(Math.round(CustomProject.planDurationSeconds)) : qsTr("Plano Não Validado")
+                            text: CustomProject.planValid
+                                  ? qsTr("✓ Plano Válido! Duração Total: %1 (%2s)").arg(formatTimecode(CustomProject.planDurationSeconds)).arg(Math.round(CustomProject.planDurationSeconds))
+                                  : qsTr("⚠ Plano Não Validado ou com Inconsistências")
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSm
                             font.weight: Font.DemiBold
@@ -1888,45 +2140,329 @@ Window {
                         }
                     }
 
-                    // Validation Messages List
-                    Rectangle {
+                    // Summary Category Cards Row
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSm
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 48
+                            radius: Theme.radiusSm
+                            color: Theme.panelBackground
+                            border.color: Theme.panelBorder
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                spacing: 1
+                                Text { text: qsTr("Total de Cenas"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.panelMuted; Layout.alignment: Qt.AlignHCenter }
+                                Text { text: String(planSummary.slotsCount !== undefined ? planSummary.slotsCount : (CustomProject.totalScenesCount || 0)); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.panelForeground; Layout.alignment: Qt.AlignHCenter }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 48
+                            radius: Theme.radiusSm
+                            color: Theme.panelBackground
+                            border.color: Theme.panelBorder
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                spacing: 1
+                                Text { text: qsTr("Cenas Cortadas (Keep)"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.primary; Layout.alignment: Qt.AlignHCenter }
+                                Text { text: String(planSummary.cutScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.primary; Layout.alignment: Qt.AlignHCenter }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 48
+                            radius: Theme.radiusSm
+                            color: Theme.panelBackground
+                            border.color: Theme.panelBorder
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                spacing: 1
+                                Text { text: qsTr("Aceleradas / Retimed"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.panelMuted; Layout.alignment: Qt.AlignHCenter }
+                                Text { text: String(planSummary.retimedScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.panelForeground; Layout.alignment: Qt.AlignHCenter }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 48
+                            radius: Theme.radiusSm
+                            color: Theme.panelBackground
+                            border.color: Theme.panelBorder
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                spacing: 1
+                                Text { text: qsTr("Exatas / Ken Burns"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.success; Layout.alignment: Qt.AlignHCenter }
+                                Text { text: String(planSummary.exactScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.success; Layout.alignment: Qt.AlignHCenter }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 48
+                            radius: Theme.radiusSm
+                            color: Theme.panelBackground
+                            border.color: Theme.panelBorder
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                spacing: 1
+                                Text { text: qsTr("Estendidas / Gaps"); font.family: Theme.fontFamily; font.pixelSize: 10; color: (planSummary.extendedScenesCount > 0 ? Theme.warning : Theme.panelMuted); Layout.alignment: Qt.AlignHCenter }
+                                Text { text: String(planSummary.extendedScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: (planSummary.extendedScenesCount > 0 ? Theme.warning : Theme.panelForeground); Layout.alignment: Qt.AlignHCenter }
+                            }
+                        }
+                    }
+
+                    // Main Interactive Section: Monitor + Table Split
+                    RowLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        color: Theme.appBackground
-                        radius: Theme.radiusSm
-                        border.color: Theme.panelBorder
-                        border.width: 1
+                        spacing: Theme.spacingMd
 
-                        ListView {
-                            anchors.fill: parent
-                            anchors.margins: Theme.spacingSm
-                            clip: true
-                            model: CustomProject.validationMessages
+                        // Left: Flow Preview Player
+                        Rectangle {
+                            Layout.preferredWidth: 460
+                            Layout.fillHeight: true
+                            color: Theme.appBackground
+                            radius: Theme.radiusSm
+                            border.color: Theme.panelBorder
+                            border.width: 1
 
-                            delegate: Rectangle {
-                                width: parent.width
-                                height: 36
-                                radius: Theme.radiusXs
-                                color: modelData.severity === "error" ? Qt.rgba(1, 0.2, 0.2, 0.15) : Qt.rgba(1, 0.7, 0, 0.1)
-                                border.color: modelData.severity === "error" ? Theme.destructive : Theme.warning
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: Theme.spacingSm
+                                spacing: Theme.spacingSm
 
+                                // Video Monitor Box
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    color: "#0a0c10"
+                                    radius: Theme.radiusXs
+                                    clip: true
+
+                                    Image {
+                                        id: flowMonitorImage
+                                        anchors.fill: parent
+                                        fillMode: Image.PreserveAspectFit
+                                        visible: source.toString().length > 0
+                                    }
+
+                                    // Placeholder when no media
+                                    Column {
+                                        anchors.centerIn: parent
+                                        spacing: 4
+                                        visible: flowMonitorImage.source.toString().length === 0
+                                        IconGlyph {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            glyph: Theme.icons.play
+                                            iconSize: 32
+                                            iconColor: Theme.panelMuted
+                                        }
+                                        Text {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: qsTr("Monitor de Preview do Fluxo")
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSizeSm
+                                            color: Theme.panelMuted
+                                        }
+                                    }
+
+                                    // Active Scene Badge Overlay
+                                    Rectangle {
+                                        anchors.top: parent.top
+                                        anchors.left: parent.left
+                                        anchors.margins: 8
+                                        height: 22
+                                        width: sceneBadgeText.implicitWidth + 14
+                                        radius: 3
+                                        color: Qt.rgba(0, 0, 0, 0.75)
+                                        visible: currentSceneAction !== null
+
+                                        Text {
+                                            id: sceneBadgeText
+                                            anchors.centerIn: parent
+                                            text: currentSceneAction ? ("#" + currentSceneAction.sceneNumber + " (" + currentSceneAction.actionDescription + ")") : ""
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: 10
+                                            font.weight: Font.DemiBold
+                                            color: Theme.primary
+                                        }
+                                    }
+
+                                    // Subtitle Caption Overlay
+                                    Rectangle {
+                                        anchors.bottom: parent.bottom
+                                        anchors.bottomMargin: 10
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        width: Math.min(parent.width - 24, flowSubText.implicitWidth + 24)
+                                        height: flowSubText.implicitHeight + 8
+                                        radius: 4
+                                        color: Qt.rgba(0, 0, 0, 0.8)
+                                        visible: currentCueText.length > 0
+
+                                        Text {
+                                            id: flowSubText
+                                            anchors.centerIn: parent
+                                            width: parent.width - 16
+                                            text: currentCueText
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSizeSm
+                                            font.weight: Font.Bold
+                                            color: "#ffffff"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            wrapMode: Text.WordWrap
+                                        }
+                                    }
+                                }
+
+                                // Transport Bar
                                 RowLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: Theme.spacingSm
-                                    spacing: Theme.spacingMd
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingSm
 
-                                    IconGlyph {
-                                        glyph: modelData.severity === "error" ? Theme.icons.error : Theme.icons.warning
-                                        iconSize: Theme.iconSizeMd
-                                        iconColor: modelData.severity === "error" ? Theme.destructive : Theme.warning
+                                    ThemedButton {
+                                        text: flowIsPlaying ? qsTr("Pausar") : qsTr("Play")
+                                        variant: flowIsPlaying ? "secondary" : "primary"
+                                        glyph: flowIsPlaying ? Theme.icons.pause : Theme.icons.play
+                                        onClicked: toggleFlowPlay()
+                                    }
+
+                                    ThemedSlider {
+                                        id: flowScrubber
+                                        Layout.fillWidth: true
+                                        from: 0.0
+                                        to: Math.max(1.0, CustomProject.planDurationSeconds)
+                                        value: flowPlayheadSeconds
+                                        onMoved: seekFlow(value)
                                     }
 
                                     Text {
-                                        text: (modelData.sceneNumber > 0 ? ("Cena #" + modelData.sceneNumber + ": ") : "") + modelData.message
+                                        text: formatTimecode(flowPlayheadSeconds) + " / " + formatTimecode(Math.max(1.0, CustomProject.planDurationSeconds))
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        font.weight: Font.DemiBold
+                                        color: Theme.panelForeground
+                                        Layout.preferredWidth: 72
+                                    }
+                                }
+                            }
+                        }
+
+                        // Right: Scene Actions Table & Warnings
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            color: Theme.appBackground
+                            radius: Theme.radiusSm
+                            border.color: Theme.panelBorder
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: Theme.spacingSm
+                                spacing: Theme.spacingSm
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text {
+                                        text: qsTr("Detalhamento de Cenas e Ações:")
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeSm
+                                        font.weight: Font.Bold
                                         color: Theme.panelForeground
-                                        Layout.fillWidth: true
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    Text {
+                                        text: (CustomProject.validationMessages.length > 0)
+                                              ? qsTr("%1 avisos").arg(CustomProject.validationMessages.length)
+                                              : qsTr("Nenhum aviso")
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: CustomProject.validationMessages.length > 0 ? Theme.warning : Theme.success
+                                    }
+                                }
+
+                                ListView {
+                                    id: sceneActionsListView
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    clip: true
+                                    model: planSummary.sceneActions || []
+                                    spacing: 3
+
+                                    ScrollBar.vertical: ScrollBar {
+                                        id: sceneActionsScrollBar
+                                        active: true
+                                        policy: ScrollBar.AlwaysOn
+                                    }
+
+                                    delegate: Rectangle {
+                                        width: sceneActionsListView.width - (sceneActionsScrollBar.visible ? sceneActionsScrollBar.width + 4 : 0)
+                                        height: 38
+                                        radius: Theme.radiusXs
+                                        color: (currentSceneAction && currentSceneAction.sceneNumber === modelData.sceneNumber)
+                                               ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.2)
+                                               : (modelData.isEmpty ? Qt.rgba(1, 1, 1, 0.02) : Theme.panelBackground)
+                                        border.color: (currentSceneAction && currentSceneAction.sceneNumber === modelData.sceneNumber)
+                                                      ? Theme.primary
+                                                      : Theme.panelBorder
+                                        border.width: 1
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            onClicked: seekFlow(modelData.timelineStartSeconds)
+                                        }
+
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 6
+                                            spacing: Theme.spacingSm
+
+                                            Text {
+                                                text: "#" + modelData.sceneNumber
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeSm
+                                                font.weight: Font.Bold
+                                                color: Theme.panelForeground
+                                                Layout.preferredWidth: 36
+                                            }
+
+                                            Text {
+                                                text: formatTimecode(modelData.timelineStartSeconds)
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXs
+                                                color: Theme.panelMuted
+                                                Layout.preferredWidth: 44
+                                            }
+
+                                            Text {
+                                                text: (modelData.actionDescription || qsTr("Normal"))
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeSm
+                                                font.weight: Font.DemiBold
+                                                color: modelData.isEmpty ? Theme.destructive : (modelData.actionDescription && modelData.actionDescription.indexOf("Cortado") >= 0 ? Theme.primary : Theme.panelForeground)
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Text {
+                                                text: modelData.timelineDurationSeconds.toFixed(1) + "s"
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXs
+                                                color: Theme.panelMuted
+                                                Layout.preferredWidth: 36
+                                            }
+
+                                            ThemedButton {
+                                                text: qsTr("Pular")
+                                                variant: "ghost"
+                                                onClicked: seekFlow(modelData.timelineStartSeconds)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1957,7 +2493,7 @@ Window {
                     // Project Configuration Quick Status & Save
                     Rectangle {
                         Layout.fillWidth: true
-                        height: 48
+                        height: 44
                         color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.08)
                         radius: Theme.radiusSm
                         border.color: Theme.primary
@@ -2005,11 +2541,13 @@ Window {
                     // Big Execute Button
                     ThemedButton {
                         Layout.fillWidth: true
-                        height: 52
+                        height: 48
                         text: qsTr("MONTAR PROJETO PERSONALIZADO NA TIMELINE")
                         variant: "primary"
                         glyph: Theme.icons.wand
                         onClicked: {
+                            pauseFlow()
+                            stopAudioPreview()
                             CustomProject.executeAssembly(AppController, root.saveProjectPath)
                             root.close()
                         }

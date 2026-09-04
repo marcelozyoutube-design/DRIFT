@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QSet>
 #include <QString>
+#include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -97,6 +98,7 @@ public:
 
     // --- Media & Duration Probing ---
     Q_INVOKABLE double probeMediaDurationSeconds(const QString &path) const;
+    Q_INVOKABLE QUrl fileUrl(const QString &path) const;
     static QString cleanPath(const QString &raw);
 
     // --- Planning & Assembly ---

@@ -80,6 +80,14 @@ double CustomProjectController::probeMediaDurationSeconds(const QString &path) c
     return 0.0;
 }
 
+QUrl CustomProjectController::fileUrl(const QString &path) const
+{
+    const QString cp = cleanPath(path);
+    if (cp.isEmpty())
+        return QUrl();
+    return QUrl::fromLocalFile(cp);
+}
+
 void CustomProjectController::refreshLists()
 {
     m_profileList.clear();
@@ -761,12 +769,15 @@ drift::CustomProjectConfig CustomProjectController::buildInternalConfig() const
     for (const QVariant &mv : musicList) {
         const QVariantMap mm = mv.toMap();
         drift::PlanMusicConfig mc;
-        mc.path = mm.value(QStringLiteral("path")).toString();
+        mc.path = cleanPath(mm.value(QStringLiteral("path")).toString());
         mc.label = mm.value(QStringLiteral("label")).toString();
+        mc.startScene = mm.value(QStringLiteral("startScene"), 0).toInt();
+        mc.endScene = mm.value(QStringLiteral("endScene"), 0).toInt();
+        mc.loop = mm.value(QStringLiteral("loop"), false).toBool();
         mc.startUs = drift::secondsToUs(mm.value(QStringLiteral("startSeconds"), 0.0).toDouble());
         mc.endUs = drift::secondsToUs(mm.value(QStringLiteral("endSeconds"), 0.0).toDouble());
         mc.relativeToNarration = mm.value(QStringLiteral("relativeToNarration"), true).toBool();
-        mc.volumeDb = mm.value(QStringLiteral("volumeDb"), -17.0).toDouble();
+        mc.volumeDb = mm.value(QStringLiteral("volumeDb"), -12.0).toDouble();
         mc.silenceBoost = mm.value(QStringLiteral("silenceBoost"), false).toBool();
         mc.boostTargetDb = mm.value(QStringLiteral("boostTargetDb"), -3.0).toDouble();
         mc.minSilenceDurationUs = drift::secondsToUs(mm.value(QStringLiteral("minSilenceSeconds"), 2.0).toDouble());
@@ -808,11 +819,32 @@ QVariantMap CustomProjectController::buildPlanSummary(const QVariantMap &overrid
     summary.insert(QStringLiteral("isValid"), m_planValid);
     summary.insert(QStringLiteral("targetDurationSeconds"), m_planDurationSeconds);
     summary.insert(QStringLiteral("slotsCount"), m_lastPlan.sceneSlots.size());
+    summary.insert(QStringLiteral("cutScenesCount"), m_lastPlan.cutScenesCount);
+    summary.insert(QStringLiteral("retimedScenesCount"), m_lastPlan.retimedScenesCount);
+    summary.insert(QStringLiteral("extendedScenesCount"), m_lastPlan.extendedScenesCount);
+    summary.insert(QStringLiteral("exactScenesCount"), m_lastPlan.exactScenesCount);
     summary.insert(QStringLiteral("musicClipsCount"), m_lastPlan.musicClips.size());
     summary.insert(QStringLiteral("ctaOccurrencesCount"), m_lastPlan.ctaOccurrences.size());
     summary.insert(QStringLiteral("brollsCount"), m_lastPlan.brolls.size());
     summary.insert(QStringLiteral("transitionsCount"), m_lastPlan.transitions.size());
     summary.insert(QStringLiteral("messages"), m_validationMessages);
+
+    QVariantList sceneActions;
+    for (const auto &slot : m_lastPlan.sceneSlots) {
+        QVariantMap sm;
+        sm.insert(QStringLiteral("sceneNumber"), slot.sceneNumber);
+        sm.insert(QStringLiteral("timelineStartSeconds"), drift::usToSeconds(slot.timelineStartUs));
+        sm.insert(QStringLiteral("timelineDurationSeconds"), drift::usToSeconds(slot.timelineDurationUs));
+        sm.insert(QStringLiteral("actionDescription"), slot.actionDescription);
+        sm.insert(QStringLiteral("isEmpty"), slot.isEmpty);
+        sm.insert(QStringLiteral("speed"), slot.speed);
+        sm.insert(QStringLiteral("mediaPath"), slot.media.path);
+        sm.insert(QStringLiteral("isVideo"), slot.media.isVideo);
+        sm.insert(QStringLiteral("cueText"), slot.cueText);
+        sceneActions.append(sm);
+    }
+    summary.insert(QStringLiteral("sceneActions"), sceneActions);
+
     return summary;
 }
 

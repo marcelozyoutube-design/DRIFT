@@ -472,18 +472,18 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
             slot.timelineDurationUs = std::max(TimeUs{1}, plan.targetDurationUs - slot.timelineStartUs);
         }
 
-        // Warnings for duration bounds (4s to 12s)
+        // Duration safety bounds (only warn on extreme anomalies, e.g. < 0.2s or > 60s)
         const double durSec = usToSeconds(slot.timelineDurationUs);
-        if (durSec < 4.0) {
+        if (durSec < 0.2) {
             plan.messages.append(PlanValidationMessage{
                 PlanValidationMessage::Severity::Warning,
-                QStringLiteral("Scene %1 duration (%2s) is shorter than recommended 4s.").arg(sceneNum).arg(durSec, 0, 'f', 1),
+                QStringLiteral("Scene %1 duration (%2s) is extremely short (< 0.2s).").arg(sceneNum).arg(durSec, 0, 'f', 2),
                 sceneNum
             });
-        } else if (durSec > 12.0) {
+        } else if (durSec > 60.0) {
             plan.messages.append(PlanValidationMessage{
                 PlanValidationMessage::Severity::Warning,
-                QStringLiteral("Scene %1 duration (%2s) is longer than recommended 12s.").arg(sceneNum).arg(durSec, 0, 'f', 1),
+                QStringLiteral("Scene %1 duration (%2s) is unusually long (> 60s).").arg(sceneNum).arg(durSec, 0, 'f', 1),
                 sceneNum
             });
         }
@@ -494,6 +494,7 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
             slot.isEmpty = false;
         } else {
             slot.isEmpty = true;
+            slot.actionDescription = QStringLiteral("Espaço Vazio");
             plan.messages.append(PlanValidationMessage{
                 PlanValidationMessage::Severity::Warning,
                 QStringLiteral("Scene %1 has no media assigned; leaving visual gap.").arg(sceneNum),
@@ -537,8 +538,10 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
     // --- 3. Video / Image Fitting Calculation ---
     for (int i = 0; i < plan.sceneSlots.size(); ++i) {
         PlannedSceneSlot &slot = plan.sceneSlots[i];
-        if (slot.isEmpty)
+        if (slot.isEmpty) {
+            slot.actionDescription = QStringLiteral("Espaço Vazio");
             continue;
+        }
 
         const TimeUs targetUs = slot.timelineDurationUs;
 
@@ -551,6 +554,8 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
                 slot.speed = 1.0;
                 slot.srcIn = 0;
                 slot.srcOut = targetUs;
+                slot.actionDescription = QStringLiteral("Duração Exata (%1s)").arg(usToSeconds(targetUs), 0, 'f', 1);
+                plan.exactScenesCount++;
                 continue;
             }
 
@@ -561,24 +566,27 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
                 slot.speed = 1.0;
                 slot.srcIn = 0;
                 slot.srcOut = srcUs;
+                slot.actionDescription = QStringLiteral("Duração Exata (%1s)").arg(usToSeconds(targetUs), 0, 'f', 1);
+                plan.exactScenesCount++;
             } else if (srcUs < targetUs) {
                 // S < T: slow down
                 slot.speed = requiredSpeed;
                 slot.srcIn = 0;
                 slot.srcOut = srcUs;
                 if (slot.speed < config.minSpeed) {
-                    plan.messages.append(PlanValidationMessage{
-                        PlanValidationMessage::Severity::Warning,
-                        QStringLiteral("Scene %1 video slowed down to %2x (below min %3x).")
-                            .arg(slot.sceneNumber).arg(slot.speed, 0, 'f', 2).arg(config.minSpeed, 0, 'f', 2),
-                        slot.sceneNumber
-                    });
+                    slot.actionDescription = QStringLiteral("Estendido / Desacelerado (%1x)").arg(slot.speed, 0, 'f', 2);
+                    plan.extendedScenesCount++;
+                } else {
+                    slot.actionDescription = QStringLiteral("Desacelerado (%1x)").arg(slot.speed, 0, 'f', 2);
+                    plan.retimedScenesCount++;
                 }
             } else if (requiredSpeed <= config.maxSpeed) {
                 // S > T, requiredSpeed <= maxSpeed: speed up
                 slot.speed = requiredSpeed;
                 slot.srcIn = 0;
                 slot.srcOut = srcUs;
+                slot.actionDescription = QStringLiteral("Acelerado (%1x)").arg(slot.speed, 0, 'f', 2);
+                plan.retimedScenesCount++;
             } else {
                 // S > T, requiredSpeed > maxSpeed: keep speed 1.0 and trim
                 slot.speed = 1.0;
@@ -598,19 +606,18 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
                     slot.srcOut = trimSpanUs;
                     break;
                 }
-                plan.messages.append(PlanValidationMessage{
-                    PlanValidationMessage::Severity::Warning,
-                    QStringLiteral("Scene %1 required speed %2x exceeds max %3x; trimmed keeping %4.")
-                        .arg(slot.sceneNumber).arg(requiredSpeed, 0, 'f', 2).arg(config.maxSpeed, 0, 'f', 2)
-                        .arg(videoTrimStrategyToString(config.trimStrategy)),
-                    slot.sceneNumber
-                });
+                slot.actionDescription = QStringLiteral("Cortado de %1s para %2s (%3)").arg(usToSeconds(srcUs), 0, 'f', 1).arg(usToSeconds(trimSpanUs), 0, 'f', 1).arg(videoTrimStrategyToString(config.trimStrategy));
+                plan.cutScenesCount++;
             }
         } else {
             // Image: fits slot exactly
             slot.speed = 1.0;
             slot.srcIn = 0;
             slot.srcOut = targetUs;
+            slot.actionDescription = config.kenBurns.enabled
+                ? QStringLiteral("Imagem com Ken Burns (%1s)").arg(usToSeconds(targetUs), 0, 'f', 1)
+                : QStringLiteral("Imagem Estática (%1s)").arg(usToSeconds(targetUs), 0, 'f', 1);
+            plan.exactScenesCount++;
 
             if (config.kenBurns.enabled) {
                 slot.hasKenBurns = true;
@@ -713,6 +720,8 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
             QStringLiteral("pixelate_matrix")
         };
 
+        TimeUs lastWhooshCutUs = -100 * kUsPerSecond;
+
         for (int i = 0; i < plan.sceneSlots.size() - 1; ++i) {
             const PlannedSceneSlot &fromSlot = plan.sceneSlots.at(i);
             const PlannedSceneSlot &toSlot = plan.sceneSlots.at(i + 1);
@@ -737,11 +746,15 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
             t.durationUs = std::min(config.transition.durationUs, maxAllowedDur);
 
             if (!config.transition.whooshAudioPath.isEmpty()) {
-                t.hasWhoosh = true;
-                t.whooshAudioPath = config.transition.whooshAudioPath;
-                t.whooshGain = dbToLinearGain(config.transition.whooshVolumeDb);
-                t.whooshDurationUs = 1 * kUsPerSecond;
-                t.whooshStartUs = std::max(TimeUs{0}, t.cutTimeUs - t.whooshDurationUs / 2 + config.transition.whooshOffsetUs);
+                const TimeUs interval = config.transition.minWhooshIntervalUs > 0 ? config.transition.minWhooshIntervalUs : 4 * kUsPerSecond;
+                if (t.cutTimeUs - lastWhooshCutUs >= interval) {
+                    t.hasWhoosh = true;
+                    t.whooshAudioPath = config.transition.whooshAudioPath;
+                    t.whooshGain = dbToLinearGain(config.transition.whooshVolumeDb);
+                    t.whooshDurationUs = std::min(TimeUs{1 * kUsPerSecond}, t.durationUs * 2);
+                    t.whooshStartUs = std::max(TimeUs{0}, t.cutTimeUs - t.whooshDurationUs / 2 + config.transition.whooshOffsetUs);
+                    lastWhooshCutUs = t.cutTimeUs;
+                }
             }
 
             plan.transitions.append(t);
@@ -757,8 +770,22 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
             if (mcfg.path.isEmpty())
                 continue;
 
-            TimeUs mStartUs = mcfg.relativeToNarration ? (config.narrationDelayUs + mcfg.startUs) : mcfg.startUs;
-            TimeUs mEndUs = mcfg.relativeToNarration ? (config.narrationDelayUs + mcfg.endUs) : mcfg.endUs;
+            TimeUs mStartUs = 0;
+            TimeUs mEndUs = 0;
+
+            if (mcfg.startScene > 0 && mcfg.startScene <= plan.sceneSlots.size()) {
+                mStartUs = plan.sceneSlots.at(mcfg.startScene - 1).timelineStartUs;
+            } else {
+                mStartUs = mcfg.relativeToNarration ? (config.narrationDelayUs + mcfg.startUs) : mcfg.startUs;
+            }
+
+            if (mcfg.endScene > 0 && mcfg.endScene <= plan.sceneSlots.size()) {
+                mEndUs = plan.sceneSlots.at(mcfg.endScene - 1).timelineEndUs();
+            } else if (mcfg.endUs > 0) {
+                mEndUs = mcfg.relativeToNarration ? (config.narrationDelayUs + mcfg.endUs) : mcfg.endUs;
+            } else {
+                mEndUs = plan.targetDurationUs;
+            }
 
             if (mEndUs <= mStartUs)
                 continue;
@@ -792,6 +819,7 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
             clip.srcIn = 0;
             clip.srcOut = clip.timelineDurationUs;
             clip.baseGain = dbToLinearGain(mcfg.volumeDb);
+            clip.loop = mcfg.loop;
             clip.fadeInUs = mcfg.fadeInUs;
             clip.fadeOutUs = mcfg.fadeOutUs;
 

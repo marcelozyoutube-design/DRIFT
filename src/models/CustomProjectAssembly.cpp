@@ -369,29 +369,69 @@ bool AppController::buildCustomProject(const drift::CustomProjectPlan &plan,
             continue;
 
         drift::Track &mTrack = m_project.tracks()[targetTrackIdx];
-        drift::Clip mClip;
-        mClip.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        mClip.type = drift::ClipType::Audio;
-        mClip.path = music.path;
-        mClip.assetId = resolveAsset(music.path, drift::ClipType::Audio);
-        mClip.name = music.label.isEmpty() ? QFileInfo(music.path).fileName() : music.label;
-        mClip.timelineStart = music.timelineStartUs;
-        mClip.timelineDuration = music.timelineDurationUs;
-        mClip.srcIn = music.srcIn;
-        mClip.srcOut = music.srcOut;
-        mClip.fadeInUs = music.fadeInUs;
-        mClip.fadeOutUs = music.fadeOutUs;
+        const MediaInfo minfo = MediaProbe::probe(music.path);
+        const drift::TimeUs fileDur = (minfo.ok && minfo.durationUs > 0) ? minfo.durationUs : music.timelineDurationUs;
 
-        if (!music.volumeKeyframes.isEmpty()) {
-            mClip.volume.setEnabled(true);
-            for (auto it = music.volumeKeyframes.begin(); it != music.volumeKeyframes.end(); ++it) {
-                mClip.volume.setKeyframe(it.key(), it.value());
+        if (music.loop && fileDur > 0 && music.timelineDurationUs > fileDur) {
+            drift::TimeUs currStart = music.timelineStartUs;
+            const drift::TimeUs totalEnd = music.timelineStartUs + music.timelineDurationUs;
+            int loopIndex = 0;
+            while (currStart < totalEnd) {
+                const drift::TimeUs chunkDur = std::min(fileDur, totalEnd - currStart);
+                drift::Clip mClip;
+                mClip.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+                mClip.type = drift::ClipType::Audio;
+                mClip.path = music.path;
+                mClip.assetId = resolveAsset(music.path, drift::ClipType::Audio);
+                mClip.name = QStringLiteral("%1 (Loop %2)").arg(music.label.isEmpty() ? QFileInfo(music.path).fileName() : music.label).arg(loopIndex + 1);
+                mClip.timelineStart = currStart;
+                mClip.timelineDuration = chunkDur;
+                mClip.srcIn = 0;
+                mClip.srcOut = chunkDur;
+                if (loopIndex == 0) mClip.fadeInUs = music.fadeInUs;
+                if (currStart + chunkDur >= totalEnd) mClip.fadeOutUs = music.fadeOutUs;
+
+                if (!music.volumeKeyframes.isEmpty()) {
+                    mClip.volume.setEnabled(true);
+                    for (auto it = music.volumeKeyframes.begin(); it != music.volumeKeyframes.end(); ++it) {
+                        const drift::TimeUs localTime = it.key();
+                        if (localTime >= (currStart - music.timelineStartUs) && localTime <= (currStart - music.timelineStartUs + chunkDur)) {
+                            mClip.volume.setKeyframe(localTime - (currStart - music.timelineStartUs), it.value());
+                        }
+                    }
+                } else if (!qFuzzyCompare(music.baseGain, 1.0)) {
+                    mClip.volume.setEnabled(true);
+                    mClip.volume.setKeyframe(0, music.baseGain);
+                }
+                mTrack.clips.append(mClip);
+                currStart += chunkDur;
+                loopIndex++;
             }
-        } else if (!qFuzzyCompare(music.baseGain, 1.0)) {
-            mClip.volume.setEnabled(true);
-            mClip.volume.setKeyframe(0, music.baseGain);
+        } else {
+            drift::Clip mClip;
+            mClip.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+            mClip.type = drift::ClipType::Audio;
+            mClip.path = music.path;
+            mClip.assetId = resolveAsset(music.path, drift::ClipType::Audio);
+            mClip.name = music.label.isEmpty() ? QFileInfo(music.path).fileName() : music.label;
+            mClip.timelineStart = music.timelineStartUs;
+            mClip.timelineDuration = music.timelineDurationUs;
+            mClip.srcIn = music.srcIn;
+            mClip.srcOut = std::min(music.srcOut, (fileDur > 0) ? fileDur : music.srcOut);
+            mClip.fadeInUs = music.fadeInUs;
+            mClip.fadeOutUs = music.fadeOutUs;
+
+            if (!music.volumeKeyframes.isEmpty()) {
+                mClip.volume.setEnabled(true);
+                for (auto it = music.volumeKeyframes.begin(); it != music.volumeKeyframes.end(); ++it) {
+                    mClip.volume.setKeyframe(it.key(), it.value());
+                }
+            } else if (!qFuzzyCompare(music.baseGain, 1.0)) {
+                mClip.volume.setEnabled(true);
+                mClip.volume.setKeyframe(0, music.baseGain);
+            }
+            mTrack.clips.append(mClip);
         }
-        mTrack.clips.append(mClip);
     }
 
     // Single-step undo transaction

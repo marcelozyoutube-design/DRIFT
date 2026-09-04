@@ -79,6 +79,9 @@ struct SceneMediaCandidate {
 struct PlanMusicConfig {
     QString path;
     QString label;
+    int startScene = 0; // 0 = start of project or relativeToNarration
+    int endScene = 0;   // 0 = end of project or cue count
+    bool loop = false;
     TimeUs startUs = 0;
     TimeUs endUs = 0;
     bool relativeToNarration = true;
@@ -131,6 +134,7 @@ struct PlanTransitionConfig {
     QString whooshAudioPath;
     double whooshVolumeDb = -6.0;
     TimeUs whooshOffsetUs = 0; // centered at cut by default
+    TimeUs minWhooshIntervalUs = 4 * kUsPerSecond; // minimum interval between whooshes
 };
 
 // Configuration for visible subtitles
@@ -201,6 +205,7 @@ struct PlannedSceneSlot {
     // Ken Burns keyframe bounds (local clip time)
     double startX = 0, startY = 0, startW = 0, startH = 0;
     double endX = 0, endY = 0, endW = 0, endH = 0;
+    QString actionDescription;
 };
 
 struct PlannedMusicClip {
@@ -212,6 +217,7 @@ struct PlannedMusicClip {
     TimeUs srcIn = 0;
     TimeUs srcOut = 0;
     double baseGain = 1.0;
+    bool loop = false;
     // Volume keyframes (local time -> linear gain)
     QMap<TimeUs, double> volumeKeyframes;
     TimeUs fadeInUs = 0;
@@ -277,6 +283,11 @@ struct CustomProjectPlan {
     QList<PlannedTransition> transitions;
     bool hasVisibleSubtitles = false;
     TextStyle subtitleStyle;
+
+    int cutScenesCount = 0;
+    int retimedScenesCount = 0;
+    int extendedScenesCount = 0;
+    int exactScenesCount = 0;
 
     QList<PlanValidationMessage> messages;
     bool isValid = true;
