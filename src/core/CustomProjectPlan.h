@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Clip.h"
 #include "SubtitleCue.h"
@@ -296,7 +296,7 @@ double linearGainToDb(double gain);
 CustomProjectPlan planCustomProject(const CustomProjectConfig &config);
 
 // Helper to select B-Roll scene numbers deterministically
-QList<int> selectBRollScenes(const QList<PlannedSceneSlot> &slots,
+QList<int> selectBRollScenes(const QList<PlannedSceneSlot> &sceneSlots,
                              const QList<PlannedCtaOccurrence> &ctas,
                              const PlanBRollConfig &config);
 

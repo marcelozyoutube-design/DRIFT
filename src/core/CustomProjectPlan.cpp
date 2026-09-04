@@ -1,4 +1,4 @@
-﻿#include "CustomProjectPlan.h"
+#include "CustomProjectPlan.h"
 
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -249,18 +249,18 @@ QMap<TimeUs, double> calculateMusicBoostKeyframes(
 
 // --- B-Roll Scene Selection ---
 
-QList<int> selectBRollScenes(const QList<PlannedSceneSlot> &slots,
+QList<int> selectBRollScenes(const QList<PlannedSceneSlot> &sceneSlots,
                              const QList<PlannedCtaOccurrence> &ctas,
                              const PlanBRollConfig &config)
 {
-    if (!config.enabled || slots.isEmpty() || config.count <= 0)
+    if (!config.enabled || sceneSlots.isEmpty() || config.count <= 0)
         return {};
 
     if (config.mode == BRollSelectionMode::Manual) {
         QList<int> result;
         QSet<int> seen;
         for (int num : config.manualSceneNumbers) {
-            for (const PlannedSceneSlot &slot : slots) {
+            for (const PlannedSceneSlot &slot : sceneSlots) {
                 if (slot.sceneNumber == num && !slot.isEmpty && !slot.cueText.trimmed().isEmpty() && !seen.contains(num)) {
                     seen.insert(num);
                     result.append(num);
@@ -273,10 +273,10 @@ QList<int> selectBRollScenes(const QList<PlannedSceneSlot> &slots,
 
     // Identify candidate slots
     QList<int> candidateIndices;
-    const int totalSlots = slots.size();
+    const int totalSlots = static_cast<int>(sceneSlots.size());
 
     for (int i = 0; i < totalSlots; ++i) {
-        const PlannedSceneSlot &slot = slots.at(i);
+        const PlannedSceneSlot &slot = sceneSlots.at(i);
         if (slot.isEmpty)
             continue;
         if (slot.cueText.trimmed().isEmpty())
@@ -304,7 +304,7 @@ QList<int> selectBRollScenes(const QList<PlannedSceneSlot> &slots,
     if (candidateIndices.isEmpty())
         return {};
 
-    const int desiredCount = std::min(config.count, candidateIndices.size());
+    const int desiredCount = std::min(config.count, static_cast<int>(candidateIndices.size()));
 
     if (config.mode == BRollSelectionMode::Distributed) {
         // Evenly distributed across candidates without consecutive picks
@@ -313,7 +313,7 @@ QList<int> selectBRollScenes(const QList<PlannedSceneSlot> &slots,
         int lastPickedSlotIdx = -999;
 
         for (int c = 0; c < desiredCount; ++c) {
-            int candIdx = std::clamp(static_cast<int>(std::round(c * step + step / 2.0)), 0, candidateIndices.size() - 1);
+            int candIdx = std::clamp<int>(static_cast<int>(std::round(c * step + step / 2.0)), 0, static_cast<int>(candidateIndices.size()) - 1);
             int slotIdx = candidateIndices.at(candIdx);
 
             // Avoid consecutive slot indices
@@ -321,8 +321,8 @@ QList<int> selectBRollScenes(const QList<PlannedSceneSlot> &slots,
                 slotIdx = candidateIndices.at(candIdx + 1);
             }
 
-            if (!chosen.contains(slots.at(slotIdx).sceneNumber)) {
-                chosen.append(slots.at(slotIdx).sceneNumber);
+            if (!chosen.contains(sceneSlots.at(slotIdx).sceneNumber)) {
+                chosen.append(sceneSlots.at(slotIdx).sceneNumber);
                 lastPickedSlotIdx = slotIdx;
             }
         }
@@ -344,7 +344,7 @@ QList<int> selectBRollScenes(const QList<PlannedSceneSlot> &slots,
         for (int pickedNum : chosen) {
             // Find slot index for pickedNum
             for (int j = 0; j < totalSlots; ++j) {
-                if (slots.at(j).sceneNumber == pickedNum) {
+                if (sceneSlots.at(j).sceneNumber == pickedNum) {
                     if (std::abs(j - slotIdx) <= 1)
                         isConsecutive = true;
                     break;
@@ -355,14 +355,14 @@ QList<int> selectBRollScenes(const QList<PlannedSceneSlot> &slots,
         }
 
         if (!isConsecutive)
-            chosen.append(slots.at(slotIdx).sceneNumber);
+            chosen.append(sceneSlots.at(slotIdx).sceneNumber);
     }
 
     // If spacing restrictions reduced count below desired, fill with remaining pool
     for (int slotIdx : pool) {
         if (chosen.size() >= desiredCount)
             break;
-        const int num = slots.at(slotIdx).sceneNumber;
+        const int num = sceneSlots.at(slotIdx).sceneNumber;
         if (!chosen.contains(num))
             chosen.append(num);
     }
@@ -769,7 +769,7 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
             plan.musicClips.append(clip);
         }
 
-        plan.musicTrackCount = std::max(1, trackEndTimes.size());
+        plan.musicTrackCount = std::max(1, static_cast<int>(trackEndTimes.size()));
     }
 
     return plan;
