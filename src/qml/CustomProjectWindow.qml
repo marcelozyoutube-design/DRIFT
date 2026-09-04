@@ -194,8 +194,8 @@ Window {
 
                 IconGlyph {
                     glyph: Theme.icons.wand
-                    size: Theme.iconSizeLg
-                    color: Theme.primary
+                    iconSize: Theme.iconSizeLg
+                    iconColor: Theme.primary
                 }
 
                 Column {
@@ -578,8 +578,8 @@ Window {
                                     IconGlyph {
                                         visible: modelData.isConflict
                                         glyph: Theme.icons.warning
-                                        size: Theme.iconSizeMd
-                                        color: Theme.warning
+                                        iconSize: Theme.iconSizeMd
+                                        iconColor: Theme.warning
                                     }
 
                                     // Action buttons
@@ -1309,8 +1309,8 @@ Window {
 
                                     IconGlyph {
                                         glyph: modelData.severity === "error" ? Theme.icons.error : Theme.icons.warning
-                                        size: Theme.iconSizeMd
-                                        color: modelData.severity === "error" ? Theme.destructive : Theme.warning
+                                        iconSize: Theme.iconSizeMd
+                                        iconColor: modelData.severity === "error" ? Theme.destructive : Theme.warning
                                     }
 
                                     Text {
