@@ -5,6 +5,7 @@
 #include "core/Time.h"
 #include "core/Track.h"
 #include "core/Transition.h"
+#include "engine/MediaProbe.h"
 
 #include <QFileInfo>
 #include <QUuid>
