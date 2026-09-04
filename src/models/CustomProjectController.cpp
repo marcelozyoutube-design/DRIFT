@@ -1,4 +1,4 @@
-﻿#include "CustomProjectController.h"
+#include "CustomProjectController.h"
 #include "core/SrtIO.h"
 #include "core/Time.h"
 #include "engine/MediaProbe.h"
@@ -466,13 +466,8 @@ int CustomProjectController::conflictScenesCount() const
 
 bool CustomProjectController::loadSrtFile(const QString &filePath)
 {
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly))
-        return false;
-
-    const QByteArray data = file.readAll();
-    m_cues = drift::SrtIO::read(data);
-    if (m_cues.isEmpty())
+    QString err;
+    if (!drift::parseSrtFile(filePath, &m_cues, &err) || m_cues.isEmpty())
         return false;
 
     m_cueList.clear();

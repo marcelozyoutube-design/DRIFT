@@ -721,6 +721,8 @@ public:
     Q_INVOKABLE void seekToScene(int sceneIndex);
     // Sensitivity, persisted in QSettings so a scan does not forget it between sessions.
     Q_INVOKABLE double sceneThreshold() const;
+    Q_INVOKABLE void setSceneThreshold(double threshold);
+
     // Assembles an entire custom project atomically with a single undo step.
     Q_INVOKABLE bool buildCustomProject(const drift::CustomProjectPlan &plan,
                                         const QMap<QString, QString> &pathToAssetId = {},
