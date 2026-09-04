@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtQuick.Window
+import QtMultimedia
 import Drift 1.0
 import "components"
 
@@ -14,6 +15,7 @@ Window {
     minimumHeight: 640
     title: qsTr("Projeto Personalizado - Drift")
     color: Theme.appBackground
+    onClosing: stopAudioPreview()
 
     function openSession() {
         if (Qt.platform.os !== "windows")
@@ -49,7 +51,8 @@ Window {
     property string videoTrimStrategy: "start"
     property real minSpeed: 0.65
     property real maxSpeed: 1.25
-    property bool muteSceneAudio: true
+    property bool muteSceneAudio: false
+    property real sceneAudioVolumeDb: -12.0
     property bool shuffle: false
     property int shuffleSeed: 42
 
@@ -66,6 +69,7 @@ Window {
     property real ctaVisualDurationSeconds: 5.0
     property real ctaOpacity: 1.0
     property real ctaBellVolumeDb: 0.0
+    property real ctaBellAudioOffsetSeconds: 0.0
 
     // B-Roll
     property bool brollEnabled: false
@@ -92,12 +96,74 @@ Window {
     // Save project destination
     property string saveProjectPath: ""
 
+    // Path sanitization helper for URLs and Windows paths
+    function urlToLocalPath(urlOrPath) {
+        if (!urlOrPath) return ""
+        var str = urlOrPath.toString().trim()
+        if (str.indexOf("file:///") === 0) {
+            str = str.substring(8)
+        } else if (str.indexOf("file://") === 0) {
+            str = str.substring(7)
+        }
+        try {
+            str = decodeURIComponent(str)
+        } catch(e) {}
+        if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+            str = str.substring(1, str.length - 1).trim()
+        }
+        return str
+    }
+
+    function toFileUrl(path) {
+        if (!path || path.length === 0) return ""
+        var p = urlToLocalPath(path)
+        if (typeof EditorState !== "undefined" && EditorState.fileUrl) {
+            return EditorState.fileUrl(p)
+        }
+        return "file:///" + p.replace(/\\/g, "/")
+    }
+
+    // Audio & Media preview player
+    MediaPlayer {
+        id: previewAudioPlayer
+        audioOutput: AudioOutput {
+            id: previewAudioOutput
+            volume: 1.0
+        }
+    }
+    property string playingAudioSource: ""
+
+    function playAudioPreview(path, volumeDb) {
+        var local = urlToLocalPath(path)
+        if (!local || local.length === 0) return
+        if (playingAudioSource === local && previewAudioPlayer.playbackState === MediaPlayer.PlayingState) {
+            previewAudioPlayer.stop()
+            playingAudioSource = ""
+            return
+        }
+        previewAudioPlayer.stop()
+        playingAudioSource = local
+        var gain = 1.0
+        if (volumeDb !== undefined && volumeDb !== null) {
+            gain = Math.pow(10.0, volumeDb / 20.0)
+        }
+        previewAudioOutput.volume = Math.max(0.0, Math.min(1.0, gain))
+        previewAudioPlayer.source = toFileUrl(local)
+        previewAudioPlayer.play()
+    }
+
+    function stopAudioPreview() {
+        previewAudioPlayer.stop()
+        playingAudioSource = ""
+    }
+
     function syncToProfile() {
         return {
             videoTrimStrategy: root.videoTrimStrategy,
             minSpeed: root.minSpeed,
             maxSpeed: root.maxSpeed,
             muteSceneAudio: root.muteSceneAudio,
+            sceneAudioVolumeDb: root.sceneAudioVolumeDb,
             kenBurnsEnabled: root.kenBurnsEnabled,
             kenBurnsIntensity: root.kenBurnsIntensity,
             ctaEnabled: root.ctaEnabled,
@@ -108,6 +174,7 @@ Window {
             ctaVisualDurationSeconds: root.ctaVisualDurationSeconds,
             ctaOpacity: root.ctaOpacity,
             ctaBellVolumeDb: root.ctaBellVolumeDb,
+            ctaBellAudioOffsetSeconds: root.ctaBellAudioOffsetSeconds,
             brollEnabled: root.brollEnabled,
             brollCount: root.brollCount,
             brollDarkenIntensity: root.brollDarkenIntensity,
@@ -133,6 +200,7 @@ Window {
         if (p.minSpeed !== undefined) root.minSpeed = p.minSpeed
         if (p.maxSpeed !== undefined) root.maxSpeed = p.maxSpeed
         if (p.muteSceneAudio !== undefined) root.muteSceneAudio = p.muteSceneAudio
+        if (p.sceneAudioVolumeDb !== undefined) root.sceneAudioVolumeDb = p.sceneAudioVolumeDb
         if (p.kenBurnsEnabled !== undefined) root.kenBurnsEnabled = p.kenBurnsEnabled
         if (p.kenBurnsIntensity !== undefined) root.kenBurnsIntensity = p.kenBurnsIntensity
         if (p.ctaEnabled !== undefined) root.ctaEnabled = p.ctaEnabled
@@ -143,6 +211,7 @@ Window {
         if (p.ctaVisualDurationSeconds !== undefined) root.ctaVisualDurationSeconds = p.ctaVisualDurationSeconds
         if (p.ctaOpacity !== undefined) root.ctaOpacity = p.ctaOpacity
         if (p.ctaBellVolumeDb !== undefined) root.ctaBellVolumeDb = p.ctaBellVolumeDb
+        if (p.ctaBellAudioOffsetSeconds !== undefined) root.ctaBellAudioOffsetSeconds = p.ctaBellAudioOffsetSeconds
         if (p.brollEnabled !== undefined) root.brollEnabled = p.brollEnabled
         if (p.brollCount !== undefined) root.brollCount = p.brollCount
         if (p.brollDarkenIntensity !== undefined) root.brollDarkenIntensity = p.brollDarkenIntensity
@@ -456,7 +525,7 @@ Window {
                                     onClicked: {
                                         const url = FileDialogs.openDirectory(qsTr("Pasta Primária"))
                                         if (url && url.toString().length > 0) {
-                                            root.primaryFolder = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                            root.primaryFolder = urlToLocalPath(url)
                                             CustomProject.scanFolders(root.primaryFolder, root.secondaryFolder)
                                         }
                                     }
@@ -485,7 +554,7 @@ Window {
                                     onClicked: {
                                         const url = FileDialogs.openDirectory(qsTr("Pasta Secundária"))
                                         if (url && url.toString().length > 0) {
-                                            root.secondaryFolder = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                            root.secondaryFolder = urlToLocalPath(url)
                                             CustomProject.scanFolders(root.primaryFolder, root.secondaryFolder)
                                         }
                                     }
@@ -528,7 +597,7 @@ Window {
                                     onClicked: {
                                         const url = FileDialogs.openFile(qsTr("Abrir SRT"), qsTr("SubRip Subtitles (*.srt);;Todos os Arquivos (*.*)"))
                                         if (url && url.toString().length > 0) {
-                                            const p = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                            const p = urlToLocalPath(url)
                                             root.srtPath = p
                                             CustomProject.loadSrtFile(p)
                                         }
@@ -549,8 +618,9 @@ Window {
                         }
                     }
 
-                    // Summary Chips
-                    Row {
+                    // Summary Chips & Status
+                    RowLayout {
+                        Layout.fillWidth: true
                         spacing: Theme.spacingMd
                         Text {
                             text: qsTr("Total de Blocos: %1").arg(CustomProject.totalScenesCount)
@@ -576,6 +646,20 @@ Window {
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSm
                             color: CustomProject.conflictScenesCount > 0 ? Theme.warning : Theme.panelMuted
+                        }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            id: scanFeedbackText
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.primary
+                        }
+                    }
+
+                    Connections {
+                        target: CustomProject
+                        function onScanFinished(totalFound, conflicts) {
+                            scanFeedbackText.text = qsTr("Varredura concluída: %1 cenas mapeadas (%2 conflitos)").arg(totalFound).arg(conflicts)
                         }
                     }
 
@@ -664,6 +748,14 @@ Window {
 
                                     // Action buttons
                                     ThemedButton {
+                                        visible: !modelData.isEmpty && modelData.path.length > 0
+                                        text: playingAudioSource === urlToLocalPath(modelData.path) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar") : qsTr("Preview")
+                                        variant: "ghost"
+                                        glyph: playingAudioSource === urlToLocalPath(modelData.path) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
+                                        onClicked: playAudioPreview(modelData.path, root.sceneAudioVolumeDb)
+                                    }
+
+                                    ThemedButton {
                                         text: modelData.locked ? qsTr("Travado") : qsTr("Travar")
                                         variant: modelData.locked ? "primary" : "ghost"
                                         onClicked: CustomProject.setSceneLocked(modelData.sceneNumber, !modelData.locked)
@@ -681,7 +773,7 @@ Window {
                                         onClicked: {
                                             const url = FileDialogs.openFile(qsTr("Selecionar Mídia para Cena #%1").arg(modelData.sceneNumber))
                                             if (url && url.toString().length > 0) {
-                                                const p = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                                const p = urlToLocalPath(url)
                                                 CustomProject.setSceneOverride(modelData.sceneNumber, p)
                                             }
                                         }
@@ -765,10 +857,63 @@ Window {
                         }
                     }
 
-                    ThemedCheckBox {
-                        text: qsTr("Silenciar áudio original dos vídeos das cenas (manter apenas narração e trilhas)")
-                        checked: root.muteSceneAudio
-                        onCheckedChanged: root.muteSceneAudio = checked
+                    RowLayout {
+                        spacing: Theme.spacingLg
+                        ThemedCheckBox {
+                            text: qsTr("Silenciar áudio original dos vídeos das cenas")
+                            checked: root.muteSceneAudio
+                            onCheckedChanged: root.muteSceneAudio = checked
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: Theme.spacingLg
+                        visible: !root.muteSceneAudio
+                        Text {
+                            text: qsTr("Volume padrão do áudio dos vídeos:")
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.panelMuted
+                        }
+                        ThemedSlider {
+                            width: 220
+                            from: -40.0
+                            to: 0.0
+                            value: root.sceneAudioVolumeDb
+                            onValueChanged: root.sceneAudioVolumeDb = Math.round(value * 10) / 10
+                        }
+                        Text {
+                            text: root.sceneAudioVolumeDb + " dB"
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.panelForeground
+                        }
+                        ThemedButton {
+                            text: playingAudioSource === "scene_volume_test" && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar") : qsTr("Ouvir Volume de Teste")
+                            variant: "ghost"
+                            glyph: playingAudioSource === "scene_volume_test" && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
+                            enabled: CustomProject.scenesModel.length > 0
+                            onClicked: {
+                                if (playingAudioSource === "scene_volume_test" && previewAudioPlayer.playbackState === MediaPlayer.PlayingState) {
+                                    stopAudioPreview()
+                                    return
+                                }
+                                var samplePath = ""
+                                for (var i = 0; i < CustomProject.scenesModel.length; ++i) {
+                                    if (CustomProject.scenesModel[i].path && CustomProject.scenesModel[i].path.length > 0) {
+                                        samplePath = CustomProject.scenesModel[i].path
+                                        break
+                                    }
+                                }
+                                if (samplePath.length > 0) {
+                                    playingAudioSource = "scene_volume_test"
+                                    var gain = Math.pow(10.0, root.sceneAudioVolumeDb / 20.0)
+                                    previewAudioOutput.volume = Math.max(0.0, Math.min(1.0, gain))
+                                    previewAudioPlayer.source = toFileUrl(samplePath)
+                                    previewAudioPlayer.play()
+                                }
+                            }
+                        }
                     }
 
                     ThemedCheckBox {
@@ -857,17 +1002,46 @@ Window {
                             onClicked: {
                                 const url = FileDialogs.openFile(qsTr("Selecionar Narração"), qsTr("Arquivos de Áudio (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)"))
                                 if (url && url.toString().length > 0) {
-                                    root.narrationPath = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                    root.narrationPath = urlToLocalPath(url)
                                     CustomProject.analyzeSilence(root.narrationPath, 2.0)
                                 }
                             }
+                        }
+                        ThemedButton {
+                            text: playingAudioSource === urlToLocalPath(root.narrationPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar") : qsTr("Ouvir Narração")
+                            variant: "ghost"
+                            enabled: root.narrationPath.length > 0
+                            glyph: playingAudioSource === urlToLocalPath(root.narrationPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
+                            onClicked: playAudioPreview(root.narrationPath, root.narrationVolumeDb)
                         }
                     }
 
                     RowLayout {
                         spacing: Theme.spacingLg
                         Text {
-                            text: qsTr("Atraso inicial da narração:")
+                            text: qsTr("Volume da narração:")
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.panelMuted
+                        }
+                        ThemedSlider {
+                            width: 200
+                            from: -20.0
+                            to: 6.0
+                            value: root.narrationVolumeDb
+                            onValueChanged: root.narrationVolumeDb = Math.round(value * 10) / 10
+                        }
+                        Text {
+                            text: root.narrationVolumeDb + " dB"
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.panelForeground
+                        }
+
+                        Item { Layout.preferredWidth: Theme.spacingLg }
+
+                        Text {
+                            text: qsTr("Atraso inicial:")
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.panelMuted
@@ -896,7 +1070,7 @@ Window {
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
-                            text: qsTr("Músicas de Fundo (Background Music - até 10 faixas):")
+                            text: qsTr("Músicas de Fundo (Background Music - selecione múltiplas faixas):")
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeMd
                             font.weight: Font.DemiBold
@@ -904,24 +1078,31 @@ Window {
                         }
                         Item { Layout.fillWidth: true }
                         ThemedButton {
-                            text: qsTr("Adicionar Música")
+                            text: qsTr("Adicionar Músicas...")
                             glyph: Theme.icons.fileText
                             onClicked: {
-                                const url = FileDialogs.openFile(qsTr("Adicionar Música de Fundo"), qsTr("Arquivos de Áudio (*.mp3 *.wav *.aac *.ogg)"))
-                                if (url && url.toString().length > 0) {
-                                    const path = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                const urls = FileDialogs.openFiles(qsTr("Adicionar Músicas de Fundo"), [
+                                    qsTr("Arquivos de Áudio (*.mp3 *.wav *.aac *.ogg *.flac *.m4a)"),
+                                    qsTr("Todos os Arquivos (*.*)")
+                                ])
+                                if (urls && urls.length > 0) {
                                     const list = root.musicList.slice()
-                                    list.push({
-                                        path: path,
-                                        label: "Música " + (list.length + 1),
-                                        volumeDb: -17.0,
-                                        silenceBoost: true,
-                                        boostTargetDb: -3.0,
-                                        minSilenceSeconds: 2.0,
-                                        rampSeconds: 0.5,
-                                        fadeInSeconds: 0.5,
-                                        fadeOutSeconds: 0.5
-                                    })
+                                    for (var i = 0; i < urls.length; ++i) {
+                                        const p = urlToLocalPath(urls[i])
+                                        if (!p || p.length === 0) continue
+                                        const baseName = p.split(/[\\/]/).pop()
+                                        list.push({
+                                            path: p,
+                                            label: baseName || ("Música " + (list.length + 1)),
+                                            volumeDb: -17.0,
+                                            silenceBoost: true,
+                                            boostTargetDb: -3.0,
+                                            minSilenceSeconds: 2.0,
+                                            rampSeconds: 0.5,
+                                            fadeInSeconds: 0.5,
+                                            fadeOutSeconds: 0.5
+                                        })
+                                    }
                                     root.musicList = list
                                 }
                             }
@@ -937,7 +1118,7 @@ Window {
 
                         delegate: Rectangle {
                             width: parent.width
-                            height: 60
+                            height: 64
                             color: Theme.panelBackground
                             border.color: Theme.panelBorder
                             border.width: 1
@@ -954,6 +1135,8 @@ Window {
                                     font.pixelSize: Theme.fontSizeSm
                                     font.weight: Font.DemiBold
                                     color: Theme.panelForeground
+                                    Layout.preferredWidth: 110
+                                    elide: Text.ElideRight
                                 }
                                 Text {
                                     text: modelData.path
@@ -964,14 +1147,35 @@ Window {
                                     Layout.fillWidth: true
                                 }
                                 Text {
-                                    text: "Vol: " + modelData.volumeDb + " dB"
+                                    text: qsTr("Vol:")
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeXs
+                                    color: Theme.panelMuted
+                                }
+                                ThemedSlider {
+                                    Layout.preferredWidth: 120
+                                    from: -40.0
+                                    to: 0.0
+                                    value: (modelData.volumeDb !== undefined) ? modelData.volumeDb : -17.0
+                                    onValueChanged: {
+                                        const rounded = Math.round(value * 10) / 10
+                                        if (modelData.volumeDb !== rounded) {
+                                            const list = root.musicList.slice()
+                                            list[index].volumeDb = rounded
+                                            root.musicList = list
+                                        }
+                                    }
+                                }
+                                Text {
+                                    text: (modelData.volumeDb !== undefined ? modelData.volumeDb : -17.0) + " dB"
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeXs
                                     color: Theme.panelForeground
+                                    Layout.preferredWidth: 50
                                 }
                                 ThemedCheckBox {
-                                    text: qsTr("Silence Boost")
-                                    checked: modelData.silenceBoost
+                                    text: qsTr("Boost")
+                                    checked: modelData.silenceBoost !== undefined ? modelData.silenceBoost : true
                                     onCheckedChanged: {
                                         const list = root.musicList.slice()
                                         list[index].silenceBoost = checked
@@ -979,9 +1183,18 @@ Window {
                                     }
                                 }
                                 ThemedButton {
+                                    text: playingAudioSource === urlToLocalPath(modelData.path) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar") : qsTr("Ouvir")
+                                    variant: "ghost"
+                                    glyph: playingAudioSource === urlToLocalPath(modelData.path) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
+                                    onClicked: playAudioPreview(modelData.path, modelData.volumeDb !== undefined ? modelData.volumeDb : -17.0)
+                                }
+                                ThemedButton {
                                     text: qsTr("Remover")
                                     variant: "ghost"
                                     onClicked: {
+                                        if (playingAudioSource === urlToLocalPath(modelData.path)) {
+                                            stopAudioPreview()
+                                        }
                                         const list = root.musicList.slice()
                                         list.splice(index, 1)
                                         root.musicList = list
@@ -998,10 +1211,58 @@ Window {
                 anchors.fill: parent
                 visible: root.activeTab === "cta"
 
+                Timer {
+                    id: ctaBellOffsetTimer
+                    interval: Math.max(10, Math.round(root.ctaBellAudioOffsetSeconds * 1000))
+                    repeat: false
+                    onTriggered: {
+                        if (root.ctaBellAudioPath.length > 0) {
+                            playAudioPreview(root.ctaBellAudioPath, root.ctaBellVolumeDb)
+                        }
+                    }
+                }
+
+                Timer {
+                    id: ctaPreviewStopTimer
+                    interval: Math.max(500, Math.round(root.ctaVisualDurationSeconds * 1000))
+                    repeat: false
+                    onTriggered: {
+                        ctaPreviewImage.playing = false
+                        ctaIsPlayingPreview = false
+                        stopAudioPreview()
+                    }
+                }
+                property bool ctaIsPlayingPreview: false
+
+                function toggleCtaPreview() {
+                    if (ctaIsPlayingPreview) {
+                        ctaBellOffsetTimer.stop()
+                        ctaPreviewStopTimer.stop()
+                        ctaPreviewImage.playing = false
+                        ctaIsPlayingPreview = false
+                        stopAudioPreview()
+                        return
+                    }
+                    stopAudioPreview()
+                    ctaIsPlayingPreview = true
+                    ctaPreviewImage.currentFrame = 0
+                    ctaPreviewImage.playing = true
+                    if (root.ctaBellAudioOffsetSeconds <= 0.05) {
+                        if (root.ctaBellAudioPath.length > 0) {
+                            playAudioPreview(root.ctaBellAudioPath, root.ctaBellVolumeDb)
+                        }
+                    } else {
+                        ctaBellOffsetTimer.interval = Math.max(10, Math.round(root.ctaBellAudioOffsetSeconds * 1000))
+                        ctaBellOffsetTimer.restart()
+                    }
+                    ctaPreviewStopTimer.interval = Math.max(500, Math.round(root.ctaVisualDurationSeconds * 1000))
+                    ctaPreviewStopTimer.restart()
+                }
+
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: Theme.spacingLg
-                    spacing: Theme.spacingLg
+                    spacing: Theme.spacingMd
 
                     ThemedCheckBox {
                         text: qsTr("Ativar Chamada para Ação Recorrente (CTA - Inscreva-se / Like)")
@@ -1015,7 +1276,7 @@ Window {
                         visible: root.ctaEnabled
 
                         Text {
-                            text: qsTr("Arquivo Visual do CTA (Vídeo transparente ou imagem):")
+                            text: qsTr("Arquivo Visual do CTA (GIF animado, vídeo transparente ou imagem):")
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.panelMuted
@@ -1025,14 +1286,15 @@ Window {
                             ThemedTextField {
                                 Layout.fillWidth: true
                                 text: root.ctaVisualPath
+                                placeholderText: qsTr("Selecione um arquivo .gif, .mov, .mp4, .png...")
                                 onTextChanged: root.ctaVisualPath = text
                             }
                             ThemedButton {
                                 text: qsTr("Selecionar...")
                                 onClicked: {
-                                    const url = FileDialogs.openFile(qsTr("Selecionar Visual CTA"), qsTr("Arquivos de Vídeo ou Imagem (*.mov *.mp4 *.webm *.png)"))
+                                    const url = FileDialogs.openFile(qsTr("Selecionar Visual CTA"), qsTr("Arquivos Visuais (*.gif *.mov *.mp4 *.webm *.png *.jpg *.jpeg *.webp);;GIFs Animados (*.gif);;Todos os Arquivos (*.*)"))
                                     if (url && url.toString().length > 0) {
-                                        root.ctaVisualPath = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                        root.ctaVisualPath = urlToLocalPath(url)
                                     }
                                 }
                             }
@@ -1049,6 +1311,7 @@ Window {
                             ThemedTextField {
                                 Layout.fillWidth: true
                                 text: root.ctaBellAudioPath
+                                placeholderText: qsTr("Selecione um arquivo de som de sino (.wav, .mp3)...")
                                 onTextChanged: root.ctaBellAudioPath = text
                             }
                             ThemedButton {
@@ -1056,22 +1319,96 @@ Window {
                                 onClicked: {
                                     const url = FileDialogs.openFile(qsTr("Selecionar Efeito Sonoro CTA"), qsTr("Arquivos de Áudio (*.wav *.mp3 *.aac *.ogg)"))
                                     if (url && url.toString().length > 0) {
-                                        root.ctaBellAudioPath = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                        root.ctaBellAudioPath = urlToLocalPath(url)
                                     }
                                 }
+                            }
+                            ThemedButton {
+                                text: playingAudioSource === urlToLocalPath(root.ctaBellAudioPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar Som") : qsTr("Ouvir Som")
+                                variant: "ghost"
+                                enabled: root.ctaBellAudioPath.length > 0
+                                glyph: playingAudioSource === urlToLocalPath(root.ctaBellAudioPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
+                                onClicked: playAudioPreview(root.ctaBellAudioPath, root.ctaBellVolumeDb)
                             }
                         }
 
                         RowLayout {
                             spacing: Theme.spacingLg
                             Text {
-                                text: qsTr("Primeira exibição aos:")
+                                text: qsTr("Duração visual do CTA:")
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeSm
                                 color: Theme.panelMuted
                             }
                             ThemedSlider {
-                                width: 200
+                                width: 170
+                                from: 1.0
+                                to: 15.0
+                                value: root.ctaVisualDurationSeconds
+                                onValueChanged: root.ctaVisualDurationSeconds = Math.round(value * 10) / 10
+                            }
+                            Text {
+                                text: root.ctaVisualDurationSeconds + " s"
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.panelForeground
+                            }
+
+                            Item { Layout.preferredWidth: Theme.spacingMd }
+
+                            Text {
+                                text: qsTr("Momento do som (Offset no GIF):")
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.panelMuted
+                            }
+                            ThemedSlider {
+                                width: 170
+                                from: 0.0
+                                to: Math.max(1.0, root.ctaVisualDurationSeconds)
+                                value: root.ctaBellAudioOffsetSeconds
+                                onValueChanged: root.ctaBellAudioOffsetSeconds = Math.round(value * 10) / 10
+                            }
+                            Text {
+                                text: root.ctaBellAudioOffsetSeconds + " s"
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.panelForeground
+                            }
+                        }
+
+                        RowLayout {
+                            spacing: Theme.spacingLg
+                            Text {
+                                text: qsTr("Volume do som do CTA:")
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.panelMuted
+                            }
+                            ThemedSlider {
+                                width: 170
+                                from: -30.0
+                                to: 6.0
+                                value: root.ctaBellVolumeDb
+                                onValueChanged: root.ctaBellVolumeDb = Math.round(value * 10) / 10
+                            }
+                            Text {
+                                text: root.ctaBellVolumeDb + " dB"
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.panelForeground
+                            }
+
+                            Item { Layout.preferredWidth: Theme.spacingMd }
+
+                            Text {
+                                text: qsTr("Primeira exibição:")
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.panelMuted
+                            }
+                            ThemedSlider {
+                                width: 160
                                 from: 60
                                 to: 1200
                                 value: root.ctaFirstAtSeconds
@@ -1094,7 +1431,7 @@ Window {
                                 color: Theme.panelMuted
                             }
                             ThemedSlider {
-                                width: 200
+                                width: 170
                                 from: 120
                                 to: 1200
                                 value: root.ctaIntervalSeconds
@@ -1105,6 +1442,83 @@ Window {
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeSm
                                 color: Theme.panelForeground
+                            }
+                        }
+
+                        // Preview Box
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 150
+                            color: Theme.appBackground
+                            radius: Theme.radiusSm
+                            border.color: Theme.panelBorder
+                            border.width: 1
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: Theme.spacingMd
+                                spacing: Theme.spacingLg
+
+                                Rectangle {
+                                    width: 180
+                                    height: 110
+                                    color: Qt.rgba(0, 0, 0, 0.4)
+                                    radius: Theme.radiusXs
+                                    border.color: Theme.panelBorder
+                                    border.width: 1
+                                    clip: true
+
+                                    AnimatedImage {
+                                        id: ctaPreviewImage
+                                        anchors.centerIn: parent
+                                        width: Math.min(parent.width, implicitWidth > 0 ? implicitWidth : parent.width)
+                                        height: Math.min(parent.height, implicitHeight > 0 ? implicitHeight : parent.height)
+                                        fillMode: Image.PreserveAspectFit
+                                        source: toFileUrl(root.ctaVisualPath)
+                                        playing: false
+                                        visible: root.ctaVisualPath.length > 0
+                                    }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: root.ctaVisualPath.length > 0 ? "" : qsTr("Sem imagem/GIF")
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: Theme.panelMuted
+                                        visible: root.ctaVisualPath.length === 0
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingSm
+
+                                    Text {
+                                        text: qsTr("Preview do CTA Sincronizado")
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeMd
+                                        font.weight: Font.DemiBold
+                                        color: Theme.panelForeground
+                                    }
+
+                                    Text {
+                                        text: qsTr("Testa o visual (%1s) com o som do sino disparado exatamente aos %2s.").arg(root.ctaVisualDurationSeconds).arg(root.ctaBellAudioOffsetSeconds)
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: Theme.panelMuted
+                                    }
+
+                                    RowLayout {
+                                        spacing: Theme.spacingMd
+                                        ThemedButton {
+                                            text: ctaIsPlayingPreview ? qsTr("Parar Preview") : qsTr("Testar Preview CTA (Visual + Sino)")
+                                            variant: "primary"
+                                            glyph: ctaIsPlayingPreview ? Theme.icons.pause : Theme.icons.play
+                                            enabled: root.ctaVisualPath.length > 0 || root.ctaBellAudioPath.length > 0
+                                            onClicked: toggleCtaPreview()
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1192,6 +1606,7 @@ Window {
                             ThemedTextField {
                                 Layout.fillWidth: true
                                 text: root.brollKeyboardAudioPath
+                                placeholderText: qsTr("Selecione um efeito sonoro de digitação...")
                                 onTextChanged: root.brollKeyboardAudioPath = text
                             }
                             ThemedButton {
@@ -1199,9 +1614,39 @@ Window {
                                 onClicked: {
                                     const url = FileDialogs.openFile(qsTr("Selecionar Som de Teclado"), qsTr("Arquivos de Áudio (*.wav *.mp3 *.aac *.ogg)"))
                                     if (url && url.toString().length > 0) {
-                                        root.brollKeyboardAudioPath = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                        root.brollKeyboardAudioPath = urlToLocalPath(url)
                                     }
                                 }
+                            }
+                            ThemedButton {
+                                text: playingAudioSource === urlToLocalPath(root.brollKeyboardAudioPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar Som") : qsTr("Ouvir Digitação")
+                                variant: "ghost"
+                                enabled: root.brollKeyboardAudioPath.length > 0
+                                glyph: playingAudioSource === urlToLocalPath(root.brollKeyboardAudioPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
+                                onClicked: playAudioPreview(root.brollKeyboardAudioPath, root.brollKeyboardVolumeDb)
+                            }
+                        }
+
+                        RowLayout {
+                            spacing: Theme.spacingLg
+                            Text {
+                                text: qsTr("Volume do som de digitação:")
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.panelMuted
+                            }
+                            ThemedSlider {
+                                width: 200
+                                from: -30.0
+                                to: 6.0
+                                value: root.brollKeyboardVolumeDb
+                                onValueChanged: root.brollKeyboardVolumeDb = Math.round(value * 10) / 10
+                            }
+                            Text {
+                                text: root.brollKeyboardVolumeDb + " dB"
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.panelForeground
                             }
                         }
                     }
@@ -1237,11 +1682,54 @@ Window {
                             color: Theme.panelMuted
                         }
                         ThemedComboBox {
-                            width: 200
-                            model: [qsTr("Nenhuma (Corte Seco)"), qsTr("Fixa (Crossfade)"), qsTr("Aleatória (Random)")]
+                            width: 220
+                            model: [qsTr("Nenhuma (Corte Seco)"), qsTr("Fixa (Escolher Tipo)"), qsTr("Aleatória (15 Efeitos YouTube)")]
                             currentIndex: root.transitionKind === "fixed" ? 1 : (root.transitionKind === "random" ? 2 : 0)
                             onActivated: (idx) => {
                                 root.transitionKind = idx === 1 ? "fixed" : (idx === 2 ? "random" : "none")
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: Theme.spacingLg
+                        visible: root.transitionKind === "fixed"
+                        Text {
+                            text: qsTr("Tipo de Transição Fixa:")
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.panelMuted
+                        }
+                        ThemedComboBox {
+                            width: 280
+                            property var transitionList: [
+                                { id: "crossfade", name: qsTr("Crossfade Suave") },
+                                { id: "push_left", name: qsTr("Push / Deslizar para Esquerda") },
+                                { id: "wipe_left", name: qsTr("Wipe / Varredura Esquerda") },
+                                { id: "wipe_right", name: qsTr("Wipe / Varredura Direita") },
+                                { id: "wipe_up", name: qsTr("Wipe / Varredura Cima") },
+                                { id: "wipe_down", name: qsTr("Wipe / Varredura Baixo") },
+                                { id: "zoom_in", name: qsTr("Zoom In Dinâmico") },
+                                { id: "cross_zoom_swirl", name: qsTr("Cross Zoom com Espiral") },
+                                { id: "radial_zoom_blur", name: qsTr("Radial Zoom Blur") },
+                                { id: "dip", name: qsTr("Dip to Black (Fade Preto)") },
+                                { id: "dip_white", name: qsTr("Dip to White (Flash Branco)") },
+                                { id: "luma_fade", name: qsTr("Luma Fade Suave") },
+                                { id: "vhs_scanline", name: qsTr("VHS Glitch Scanlines") },
+                                { id: "rgb_displacement", name: qsTr("RGB Glitch Displacement") },
+                                { id: "pixelate_matrix", name: qsTr("Pixelate / Mosaico") }
+                            ]
+                            model: transitionList.map(function(t) { return t.name })
+                            currentIndex: {
+                                for (var i = 0; i < transitionList.length; ++i) {
+                                    if (transitionList[i].id === root.transitionFixedKindId) return i
+                                }
+                                return 0
+                            }
+                            onActivated: (idx) => {
+                                if (idx >= 0 && idx < transitionList.length) {
+                                    root.transitionFixedKindId = transitionList[idx].id
+                                }
                             }
                         }
                     }
@@ -1283,6 +1771,7 @@ Window {
                         ThemedTextField {
                             Layout.fillWidth: true
                             text: root.transitionWhooshAudioPath
+                            placeholderText: qsTr("Selecione o som de transição Whoosh (.wav, .mp3)...")
                             onTextChanged: root.transitionWhooshAudioPath = text
                         }
                         ThemedButton {
@@ -1290,9 +1779,40 @@ Window {
                             onClicked: {
                                 const url = FileDialogs.openFile(qsTr("Selecionar Som Whoosh"), qsTr("Arquivos de Áudio (*.wav *.mp3 *.aac *.ogg)"))
                                 if (url && url.toString().length > 0) {
-                                    root.transitionWhooshAudioPath = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                    root.transitionWhooshAudioPath = urlToLocalPath(url)
                                 }
                             }
+                        }
+                        ThemedButton {
+                            text: playingAudioSource === urlToLocalPath(root.transitionWhooshAudioPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar Som") : qsTr("Ouvir Whoosh")
+                            variant: "ghost"
+                            enabled: root.transitionWhooshAudioPath.length > 0
+                            glyph: playingAudioSource === urlToLocalPath(root.transitionWhooshAudioPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
+                            onClicked: playAudioPreview(root.transitionWhooshAudioPath, root.transitionWhooshVolumeDb)
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: Theme.spacingLg
+                        visible: root.transitionKind !== "none"
+                        Text {
+                            text: qsTr("Volume do som Whoosh:")
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.panelMuted
+                        }
+                        ThemedSlider {
+                            width: 200
+                            from: -30.0
+                            to: 6.0
+                            value: root.transitionWhooshVolumeDb
+                            onValueChanged: root.transitionWhooshVolumeDb = Math.round(value * 10) / 10
+                        }
+                        Text {
+                            text: root.transitionWhooshVolumeDb + " dB"
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.panelForeground
                         }
                     }
 
@@ -1347,6 +1867,14 @@ Window {
                             glyph: Theme.icons.check
                             variant: "secondary"
                             onClicked: CustomProject.buildPlanSummary(root.syncToProfile())
+                        }
+
+                        ThemedButton {
+                            text: playingAudioSource === urlToLocalPath(root.narrationPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar") : qsTr("Preview Narração")
+                            glyph: playingAudioSource === urlToLocalPath(root.narrationPath) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.icons.pause : Theme.icons.play
+                            variant: "ghost"
+                            enabled: root.narrationPath.length > 0
+                            onClicked: playAudioPreview(root.narrationPath, root.narrationVolumeDb)
                         }
 
                         Item { Layout.fillWidth: true }
@@ -1420,7 +1948,7 @@ Window {
                             onClicked: {
                                 const url = FileDialogs.saveFile(qsTr("Salvar Projeto Drift"), qsTr("Projetos Drift (*.drift)"), "drift")
                                 if (url && url.toString().length > 0) {
-                                    root.saveProjectPath = url.toLocalFile ? url.toLocalFile() : url.toString()
+                                    root.saveProjectPath = urlToLocalPath(url)
                                 }
                             }
                         }

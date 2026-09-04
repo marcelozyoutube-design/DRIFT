@@ -1,4 +1,4 @@
-﻿#include "AppController.h"
+#include "AppController.h"
 #include "core/CustomProjectPlan.h"
 #include "core/MediaAsset.h"
 #include "core/Project.h"
@@ -111,7 +111,9 @@ bool AppController::buildCustomProject(const drift::CustomProjectPlan &plan,
     // 1. Populate Scenes
     QMap<int, QString> sceneIndexToClipId;
     drift::Track &scenesTrack = m_project.tracks()[scenesTrackIdx];
-    const bool muteSceneAudio = options.value(QStringLiteral("muteSceneAudio"), true).toBool();
+    const bool muteSceneAudio = options.value(QStringLiteral("muteSceneAudio"), false).toBool();
+    const double sceneAudioVolumeDb = options.value(QStringLiteral("sceneAudioVolumeDb"), -12.0).toDouble();
+    const double sceneAudioGain = muteSceneAudio ? 0.0 : drift::dbToLinearGain(sceneAudioVolumeDb);
 
     for (int i = 0; i < plan.sceneSlots.size(); ++i) {
         const drift::PlannedSceneSlot &slot = plan.sceneSlots.at(i);
@@ -131,8 +133,17 @@ bool AppController::buildCustomProject(const drift::CustomProjectPlan &plan,
         clip.srcOut = slot.srcOut;
         clip.speed = slot.speed;
 
-        if (slot.media.isVideo && (slot.media.hasAudio || muteSceneAudio)) {
-            clip.suppressEmbeddedAudio = true;
+        if (slot.media.isVideo) {
+            if (muteSceneAudio || slot.suppressAudio) {
+                clip.suppressEmbeddedAudio = true;
+            } else {
+                clip.suppressEmbeddedAudio = false;
+                const double gain = (slot.sceneAudioGain > 0.0) ? slot.sceneAudioGain : sceneAudioGain;
+                if (!qFuzzyCompare(gain, 1.0)) {
+                    clip.volume.setEnabled(true);
+                    clip.volume.setKeyframe(0, gain);
+                }
+            }
         }
 
         if (slot.hasKenBurns) {

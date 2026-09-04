@@ -80,13 +80,33 @@ CustomTransitionKind customTransitionKindFromString(const QString &str)
 
 int extractSceneNumber(const QString &filename)
 {
-    static const QRegularExpression regex(QStringLiteral("^(\\d+)"));
-    const QRegularExpressionMatch match = regex.match(filename.trimmed());
-    if (!match.hasMatch())
+    const QString base = QFileInfo(filename).completeBaseName().trimmed();
+    if (base.isEmpty())
         return -1;
-    bool ok = false;
-    const int number = match.captured(1).toInt(&ok);
-    return ok ? number : -1;
+
+    // 1. Standard leading digits: e.g. "1.mp4", "02_broll.jpg", "007_intro.mov", "10a.png", "999 - finale.mp4"
+    static const QRegularExpression leadingDigits(QStringLiteral("^(\\d+)"));
+    auto match = leadingDigits.match(base);
+    if (match.hasMatch()) {
+        bool ok = false;
+        const int number = match.captured(1).toInt(&ok);
+        if (ok && number > 0)
+            return number;
+    }
+
+    // 2. Prefixes like "cena 1", "cena_02", "scene 3", "take 4", "bloco 5", "parte 6"
+    static const QRegularExpression prefixRegex(
+        QStringLiteral("^(?:cena|scene|take|bloco|parte|part)[_\\s-]*(\\d+)"),
+        QRegularExpression::CaseInsensitiveOption);
+    match = prefixRegex.match(base);
+    if (match.hasMatch()) {
+        bool ok = false;
+        const int number = match.captured(1).toInt(&ok);
+        if (ok && number > 0)
+            return number;
+    }
+
+    return -1;
 }
 
 bool isSupportedImageFile(const QString &path)
@@ -380,12 +400,17 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
     plan.narrationDelayUs = config.narrationDelayUs;
     plan.narrationGain = dbToLinearGain(config.narrationVolumeDb);
     plan.syncCues = config.syncCues;
-    plan.targetDurationUs = config.narrationDelayUs + config.audioDurationUs;
+
+    TimeUs effectiveAudioDurationUs = config.audioDurationUs;
+    if (effectiveAudioDurationUs <= 0 && !config.syncCues.isEmpty()) {
+        effectiveAudioDurationUs = config.syncCues.last().endUs;
+    }
+    plan.targetDurationUs = config.narrationDelayUs + effectiveAudioDurationUs;
     plan.hasVisibleSubtitles = config.subtitle.visible;
     plan.subtitleStyle = config.subtitle.textStyle;
 
     // --- Validation Checks ---
-    if (config.audioDurationUs <= 0) {
+    if (effectiveAudioDurationUs <= 0) {
         plan.messages.append(PlanValidationMessage{
             PlanValidationMessage::Severity::Error,
             QStringLiteral("Main narration audio duration must be greater than zero.")
@@ -518,6 +543,9 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
         const TimeUs targetUs = slot.timelineDurationUs;
 
         if (slot.media.isVideo) {
+            slot.suppressAudio = config.muteSceneAudio;
+            slot.sceneAudioGain = config.muteSceneAudio ? 0.0 : dbToLinearGain(config.sceneAudioVolumeDb);
+
             const TimeUs srcUs = slot.media.sourceDurationUs;
             if (srcUs <= 0) {
                 slot.speed = 1.0;
@@ -669,10 +697,20 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
     if (config.transition.kind != CustomTransitionKind::None) {
         static const QStringList kRandomTransitions = {
             QStringLiteral("crossfade"),
+            QStringLiteral("push_left"),
             QStringLiteral("wipe_left"),
             QStringLiteral("wipe_right"),
+            QStringLiteral("wipe_up"),
+            QStringLiteral("wipe_down"),
             QStringLiteral("zoom_in"),
-            QStringLiteral("push_left")
+            QStringLiteral("cross_zoom_swirl"),
+            QStringLiteral("radial_zoom_blur"),
+            QStringLiteral("dip"),
+            QStringLiteral("dip_white"),
+            QStringLiteral("luma_fade"),
+            QStringLiteral("vhs_scanline"),
+            QStringLiteral("rgb_displacement"),
+            QStringLiteral("pixelate_matrix")
         };
 
         for (int i = 0; i < plan.sceneSlots.size() - 1; ++i) {

@@ -66,6 +66,7 @@ struct SceneMediaCandidate {
     QString path;
     bool isVideo = false;
     TimeUs sourceDurationUs = 0;
+    TimeUs durationUs = 0;
     int width = 0;
     int height = 0;
     bool hasAudio = false;
@@ -155,7 +156,8 @@ struct CustomProjectConfig {
     VideoTrimStrategy trimStrategy = VideoTrimStrategy::KeepStart;
     double minSpeed = 0.65;
     double maxSpeed = 1.25;
-    bool muteSceneAudio = true;
+    bool muteSceneAudio = false;
+    double sceneAudioVolumeDb = -12.0;
     bool shuffle = false;
     uint32_t shuffleSeed = 42;
     QSet<int> lockedScenes;
@@ -193,6 +195,8 @@ struct PlannedSceneSlot {
     double speed = 1.0;
     TimeUs srcIn = 0;
     TimeUs srcOut = 0;
+    bool suppressAudio = false;
+    double sceneAudioGain = 1.0;
     bool hasKenBurns = false;
     // Ken Burns keyframe bounds (local clip time)
     double startX = 0, startY = 0, startW = 0, startH = 0;

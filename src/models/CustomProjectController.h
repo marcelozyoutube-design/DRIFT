@@ -95,6 +95,10 @@ public:
     // --- Speech Silence Detection ---
     Q_INVOKABLE void analyzeSilence(const QString &audioPath, double minSilenceSeconds = 2.0);
 
+    // --- Media & Duration Probing ---
+    Q_INVOKABLE double probeMediaDurationSeconds(const QString &path) const;
+    static QString cleanPath(const QString &raw);
+
     // --- Planning & Assembly ---
     Q_INVOKABLE QVariantMap buildPlanSummary(const QVariantMap &overrideConfig = {});
     Q_INVOKABLE bool executeAssembly(AppController *appController, const QString &saveProjectPath = QString());
@@ -107,6 +111,7 @@ signals:
     void candidateScenesChanged();
     void cuesChanged();
     void isScanningChanged();
+    void scanFinished(int totalFound, int conflicts);
     void isTranscribingChanged();
     void transcriptionProgressChanged();
     void transcriptionStatusChanged();

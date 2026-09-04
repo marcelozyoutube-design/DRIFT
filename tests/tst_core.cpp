@@ -3221,6 +3221,12 @@ void CoreTest::customProjectRegex()
     QCOMPARE(drift::extractSceneNumber(QStringLiteral("video_01.mp4")), -1);
     QCOMPARE(drift::extractSceneNumber(QStringLiteral("")), -1);
     QCOMPARE(drift::extractSceneNumber(QStringLiteral("abc123.jpg")), -1);
+
+    // Check prefix cases (cena, scene, take)
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("Cena 1.mp4")), 1);
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("cena_02.png")), 2);
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("scene 3.mov")), 3);
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("take-04.mp4")), 4);
 }
 
 void CoreTest::customProjectDecibels()

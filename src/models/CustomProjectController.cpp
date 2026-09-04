@@ -47,6 +47,39 @@ QString CustomProjectController::projectsDirectory()
     return dir;
 }
 
+QString CustomProjectController::cleanPath(const QString &raw)
+{
+    QString p = raw.trimmed();
+    if (p.isEmpty())
+        return {};
+
+    if (p.startsWith(QLatin1String("file:"), Qt::CaseInsensitive)) {
+        QUrl url(p);
+        if (url.isValid() && !url.toLocalFile().isEmpty()) {
+            p = url.toLocalFile();
+        } else {
+            p.remove(QRegularExpression(QStringLiteral("^file:\\/\\/\\/?"), QRegularExpression::CaseInsensitiveOption));
+            p = QUrl::fromPercentEncoding(p.toUtf8());
+        }
+    }
+    if ((p.startsWith(QLatin1Char('"')) && p.endsWith(QLatin1Char('"')))
+        || (p.startsWith(QLatin1Char('\'')) && p.endsWith(QLatin1Char('\'')))) {
+        p = p.mid(1, p.length() - 2).trimmed();
+    }
+    return QDir::fromNativeSeparators(p);
+}
+
+double CustomProjectController::probeMediaDurationSeconds(const QString &path) const
+{
+    const QString cp = cleanPath(path);
+    if (cp.isEmpty())
+        return 0.0;
+    const MediaInfo info = MediaProbe::probe(cp);
+    if (info.ok && info.durationUs > 0)
+        return drift::usToSeconds(info.durationUs);
+    return 0.0;
+}
+
 void CustomProjectController::refreshLists()
 {
     m_profileList.clear();
@@ -193,15 +226,16 @@ void CustomProjectController::scanFolders(const QString &primaryFolder, const QS
     m_isScanning = true;
     emit isScanningChanged();
 
-    m_primaryFolder = primaryFolder;
-    m_secondaryFolder = secondaryFolder;
+    m_primaryFolder = cleanPath(primaryFolder);
+    m_secondaryFolder = cleanPath(secondaryFolder);
     m_primaryFound.clear();
     m_secondaryFound.clear();
 
-    const auto scanDir = [](const QString &dirPath, QMap<int, QStringList> &outMap) {
-        if (dirPath.isEmpty())
+    const auto scanDir = [this](const QString &dirPath, QMap<int, QStringList> &outMap) {
+        const QString cleaned = cleanPath(dirPath);
+        if (cleaned.isEmpty())
             return;
-        const QDir dir(dirPath);
+        const QDir dir(cleaned);
         if (!dir.exists())
             return;
 
@@ -217,13 +251,14 @@ void CustomProjectController::scanFolders(const QString &primaryFolder, const QS
         }
     };
 
-    scanDir(primaryFolder, m_primaryFound);
-    scanDir(secondaryFolder, m_secondaryFound);
+    scanDir(m_primaryFolder, m_primaryFound);
+    scanDir(m_secondaryFolder, m_secondaryFound);
 
     rebuildCandidates();
 
     m_isScanning = false;
     emit isScanningChanged();
+    emit scanFinished(filledScenesCount(), conflictScenesCount());
 }
 
 void CustomProjectController::setSceneOverride(int sceneNumber, const QString &customPath)
@@ -467,7 +502,8 @@ int CustomProjectController::conflictScenesCount() const
 bool CustomProjectController::loadSrtFile(const QString &filePath)
 {
     QString err;
-    if (!drift::parseSrtFile(filePath, &m_cues, &err) || m_cues.isEmpty())
+    const QString cp = cleanPath(filePath);
+    if (!drift::parseSrtFile(cp, &m_cues, &err) || m_cues.isEmpty())
         return false;
 
     m_cueList.clear();
@@ -493,6 +529,10 @@ void CustomProjectController::transcribeAudio(const QString &audioPath, const QS
     if (m_isTranscribing)
         return;
 
+    const QString cp = cleanPath(audioPath);
+    if (cp.isEmpty())
+        return;
+
     m_isTranscribing = true;
     m_transcriptionProgress = 0.0;
     m_transcriptionStatus = tr("Preparing Whisper engine...");
@@ -501,7 +541,7 @@ void CustomProjectController::transcribeAudio(const QString &audioPath, const QS
     emit transcriptionProgressChanged();
     emit transcriptionStatusChanged();
 
-    (void)QtConcurrent::run([this, audioPath, language]() {
+    (void)QtConcurrent::run([this, cp, language]() {
         drift::WhisperTranscriber &whisper = drift::WhisperTranscriber::instance();
         if (!whisper.available()) {
             QMetaObject::invokeMethod(this, [this, err = whisper.lastError()]() {
@@ -514,7 +554,7 @@ void CustomProjectController::transcribeAudio(const QString &audioPath, const QS
         }
 
         // Probe media info
-        const MediaInfo info = MediaProbe::probe(audioPath);
+        const MediaInfo info = MediaProbe::probe(cp);
         if (!info.ok || info.durationUs <= 0) {
             QMetaObject::invokeMethod(this, [this]() {
                 m_isTranscribing = false;
@@ -562,11 +602,12 @@ void CustomProjectController::cancelTranscription()
 
 void CustomProjectController::analyzeSilence(const QString &audioPath, double minSilenceSeconds)
 {
-    if (audioPath.isEmpty())
+    const QString cp = cleanPath(audioPath);
+    if (cp.isEmpty())
         return;
 
-    (void)QtConcurrent::run([this, audioPath, minSilenceSeconds]() {
-        const auto dense = MediaWaveform::densePeaks(audioPath, 50);
+    (void)QtConcurrent::run([this, cp, minSilenceSeconds]() {
+        const auto dense = MediaWaveform::densePeaks(cp, 50);
         if (dense.peaks.isEmpty() || dense.durationSeconds <= 0.0)
             return;
 
@@ -613,6 +654,24 @@ drift::CustomProjectConfig CustomProjectController::buildInternalConfig() const
     cfg.narrationDelayUs = drift::secondsToUs(m_currentProject.value(QStringLiteral("narrationDelaySeconds"), 0.0).toDouble());
     cfg.narrationVolumeDb = m_currentProject.value(QStringLiteral("narrationVolumeDb"), 0.0).toDouble();
 
+    // Probe narration audio duration
+    const QString narrationPath = cleanPath(m_currentProject.value(QStringLiteral("narrationPath")).toString());
+    if (!narrationPath.isEmpty()) {
+        const MediaInfo info = MediaProbe::probe(narrationPath);
+        if (info.ok && info.durationUs > 0) {
+            cfg.audioDurationUs = info.durationUs;
+        }
+    }
+    if (cfg.audioDurationUs <= 0) {
+        const double durSec = m_currentProject.value(QStringLiteral("narrationDurationSeconds"), 0.0).toDouble();
+        if (durSec > 0.0) {
+            cfg.audioDurationUs = drift::secondsToUs(durSec);
+        }
+    }
+    if (cfg.audioDurationUs <= 0 && !m_cues.isEmpty()) {
+        cfg.audioDurationUs = m_cues.last().endUs;
+    }
+
     cfg.syncCues = m_cues;
 
     // Resolved scene candidates
@@ -620,9 +679,10 @@ drift::CustomProjectConfig CustomProjectController::buildInternalConfig() const
         const QVariantMap m = v.toMap();
         drift::SceneMediaCandidate cand;
         cand.sceneNumber = m.value(QStringLiteral("sceneNumber")).toInt();
-        cand.path = m.value(QStringLiteral("path")).toString();
+        cand.path = cleanPath(m.value(QStringLiteral("path")).toString());
         cand.isVideo = m.value(QStringLiteral("isVideo")).toBool();
         cand.sourceDurationUs = drift::secondsToUs(m.value(QStringLiteral("durationSeconds")).toDouble());
+        cand.durationUs = cand.sourceDurationUs;
         cand.width = m.value(QStringLiteral("width")).toInt();
         cand.height = m.value(QStringLiteral("height")).toInt();
         cand.isConflict = m.value(QStringLiteral("isConflict")).toBool();
@@ -643,7 +703,8 @@ drift::CustomProjectConfig CustomProjectController::buildInternalConfig() const
     cfg.trimStrategy = drift::videoTrimStrategyFromString(trimStr);
     cfg.minSpeed = m_currentProfile.value(QStringLiteral("minSpeed"), 0.65).toDouble();
     cfg.maxSpeed = m_currentProfile.value(QStringLiteral("maxSpeed"), 1.25).toDouble();
-    cfg.muteSceneAudio = m_currentProfile.value(QStringLiteral("muteSceneAudio"), true).toBool();
+    cfg.muteSceneAudio = m_currentProfile.value(QStringLiteral("muteSceneAudio"), false).toBool();
+    cfg.sceneAudioVolumeDb = m_currentProfile.value(QStringLiteral("sceneAudioVolumeDb"), -12.0).toDouble();
 
     cfg.shuffle = m_currentProject.value(QStringLiteral("shuffle"), false).toBool();
     cfg.shuffleSeed = static_cast<uint32_t>(m_currentProject.value(QStringLiteral("shuffleSeed"), 42).toUInt());
@@ -655,8 +716,8 @@ drift::CustomProjectConfig CustomProjectController::buildInternalConfig() const
 
     // CTA
     cfg.cta.enabled = m_currentProfile.value(QStringLiteral("ctaEnabled"), false).toBool();
-    cfg.cta.visualPath = m_currentProfile.value(QStringLiteral("ctaVisualPath")).toString();
-    cfg.cta.bellAudioPath = m_currentProfile.value(QStringLiteral("ctaBellAudioPath")).toString();
+    cfg.cta.visualPath = cleanPath(m_currentProfile.value(QStringLiteral("ctaVisualPath")).toString());
+    cfg.cta.bellAudioPath = cleanPath(m_currentProfile.value(QStringLiteral("ctaBellAudioPath")).toString());
     cfg.cta.firstAtUs = drift::secondsToUs(m_currentProfile.value(QStringLiteral("ctaFirstAtSeconds"), 480.0).toDouble());
     cfg.cta.intervalUs = drift::secondsToUs(m_currentProfile.value(QStringLiteral("ctaIntervalSeconds"), 480.0).toDouble());
     cfg.cta.visualDurationUs = drift::secondsToUs(m_currentProfile.value(QStringLiteral("ctaVisualDurationSeconds"), 5.0).toDouble());
@@ -666,12 +727,13 @@ drift::CustomProjectConfig CustomProjectController::buildInternalConfig() const
     cfg.cta.height = m_currentProfile.value(QStringLiteral("ctaHeight"), 0.0).toDouble();
     cfg.cta.opacity = m_currentProfile.value(QStringLiteral("ctaOpacity"), 1.0).toDouble();
     cfg.cta.bellVolumeDb = m_currentProfile.value(QStringLiteral("ctaBellVolumeDb"), 0.0).toDouble();
+    cfg.cta.bellOffsetUs = drift::secondsToUs(m_currentProfile.value(QStringLiteral("ctaBellAudioOffsetSeconds"), 0.0).toDouble());
 
     // B-Roll
     cfg.broll.enabled = m_currentProfile.value(QStringLiteral("brollEnabled"), false).toBool();
     cfg.broll.count = m_currentProfile.value(QStringLiteral("brollCount"), 3).toInt();
     cfg.broll.darkenIntensity = m_currentProfile.value(QStringLiteral("brollDarkenIntensity"), 0.55).toDouble();
-    cfg.broll.keyboardAudioPath = m_currentProfile.value(QStringLiteral("brollKeyboardAudioPath")).toString();
+    cfg.broll.keyboardAudioPath = cleanPath(m_currentProfile.value(QStringLiteral("brollKeyboardAudioPath")).toString());
     cfg.broll.keyboardVolumeDb = m_currentProfile.value(QStringLiteral("brollKeyboardVolumeDb"), -10.0).toDouble();
     cfg.broll.keyboardFadeUs = drift::secondsToUs(m_currentProfile.value(QStringLiteral("brollKeyboardFadeSeconds"), 0.05).toDouble());
 
@@ -680,7 +742,7 @@ drift::CustomProjectConfig CustomProjectController::buildInternalConfig() const
     cfg.transition.kind = drift::customTransitionKindFromString(trKind);
     cfg.transition.fixedKindId = m_currentProfile.value(QStringLiteral("transitionFixedKindId"), QStringLiteral("crossfade")).toString();
     cfg.transition.durationUs = drift::secondsToUs(m_currentProfile.value(QStringLiteral("transitionDurationSeconds"), 0.5).toDouble());
-    cfg.transition.whooshAudioPath = m_currentProfile.value(QStringLiteral("transitionWhooshAudioPath")).toString();
+    cfg.transition.whooshAudioPath = cleanPath(m_currentProfile.value(QStringLiteral("transitionWhooshAudioPath")).toString());
     cfg.transition.whooshVolumeDb = m_currentProfile.value(QStringLiteral("transitionWhooshVolumeDb"), -6.0).toDouble();
 
     // Subtitles
@@ -719,7 +781,11 @@ drift::CustomProjectConfig CustomProjectController::buildInternalConfig() const
 
 QVariantMap CustomProjectController::buildPlanSummary(const QVariantMap &overrideConfig)
 {
-    Q_UNUSED(overrideConfig)
+    if (!overrideConfig.isEmpty()) {
+        for (auto it = overrideConfig.begin(); it != overrideConfig.end(); ++it) {
+            m_currentProfile.insert(it.key(), it.value());
+        }
+    }
     drift::CustomProjectConfig cfg = buildInternalConfig();
     m_lastPlan = drift::planCustomProject(cfg);
 
@@ -768,8 +834,9 @@ bool CustomProjectController::executeAssembly(AppController *appController, cons
     options.insert(QStringLiteral("projectWidth"), m_lastPlan.targetDurationUs > 0 ? m_currentProfile.value(QStringLiteral("projectWidth"), 1920) : 1920);
     options.insert(QStringLiteral("projectHeight"), m_currentProfile.value(QStringLiteral("projectHeight"), 1080));
     options.insert(QStringLiteral("projectFps"), m_currentProfile.value(QStringLiteral("projectFps"), 30));
-    options.insert(QStringLiteral("narrationPath"), m_currentProject.value(QStringLiteral("narrationPath")).toString());
-    options.insert(QStringLiteral("muteSceneAudio"), m_currentProfile.value(QStringLiteral("muteSceneAudio"), true).toBool());
+    options.insert(QStringLiteral("narrationPath"), cleanPath(m_currentProject.value(QStringLiteral("narrationPath")).toString()));
+    options.insert(QStringLiteral("muteSceneAudio"), m_currentProfile.value(QStringLiteral("muteSceneAudio"), false).toBool());
+    options.insert(QStringLiteral("sceneAudioVolumeDb"), m_currentProfile.value(QStringLiteral("sceneAudioVolumeDb"), -12.0).toDouble());
 
     bool ok = appController->buildCustomProject(m_lastPlan, {}, options);
     if (!ok) {
