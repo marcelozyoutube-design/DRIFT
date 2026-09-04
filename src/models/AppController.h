@@ -4,6 +4,7 @@
 #include "core/Project.h"
 #include "core/TimelineOps.h"
 #include "core/Time.h"
+#include "core/CustomProjectPlan.h"
 #include "engine/AudioOnsets.h"
 #include "engine/SceneDetect.h"
 #include "engine/FilmstripTileCache.h"
@@ -720,7 +721,11 @@ public:
     Q_INVOKABLE void seekToScene(int sceneIndex);
     // Sensitivity, persisted in QSettings so a scan does not forget it between sessions.
     Q_INVOKABLE double sceneThreshold() const;
-    Q_INVOKABLE void setSceneThreshold(double threshold);
+    // Assembles an entire custom project atomically with a single undo step.
+    Q_INVOKABLE bool buildCustomProject(const drift::CustomProjectPlan &plan,
+                                        const QMap<QString, QString> &pathToAssetId = {},
+                                        const QVariantMap &options = {});
+
     // shapeKind/shapeId is a catalog id from builtinShapes(), which is not always a ShapeKind name:
     // "circle" and "ellipse" are the same kind with different default aspects.
     Q_INVOKABLE void addShapeClip(const QString &shapeKind, double atSeconds);

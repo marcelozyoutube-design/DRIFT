@@ -3,6 +3,7 @@
 #include "WhisperTokenizer.h"
 #include "GpuPackageParse.h"
 #include "OrtRuntime.h"
+#include "OrtSupport.h"
 #include "core/Time.h"
 
 #include <QByteArray>
@@ -279,6 +280,13 @@ struct WhisperTranscriber::Impl
             av_tx_uninit(&tx);
         av_free(fftIn);
         av_free(fftOut);
+        // Deliberately release ownership without destroying the three Ort::Session instances
+        // during late process teardown. This avoids an access violation when ONNX Runtime
+        // or provider DLLs have already been unloaded, and the operating system reclaims
+        // the process memory on exit anyway.
+        (void)encoder.release();
+        (void)decoder.release();
+        (void)decoderPast.release();
     }
 
     bool ensureLanguageMap();
@@ -612,33 +620,34 @@ bool WhisperTranscriber::Impl::ensureLoaded()
     if (!ort::ensureLoaded(&error))
         return false;
 
-    try {
-        Ort::Env &ortEnv = ort::env();
-        Ort::SessionOptions opts;
-        opts.SetIntraOpNumThreads(std::max(1, QThread::idealThreadCount()));
-        // fp16 graph fusions (SimplifiedLayerNormFusion) crash on load; disable them.
-        opts.SetGraphOptimizationLevel(ORT_DISABLE_ALL);
+    Ort::Env &ortEnv = ort::env();
+    const QDir dir(modelDir);
+    const QString encPath = dir.filePath(QStringLiteral("encoder_model_fp16.onnx"));
+    const QString decPath = dir.filePath(QStringLiteral("decoder_model_fp16.onnx"));
+    const QString decpPath = dir.filePath(QStringLiteral("decoder_with_past_model_fp16.onnx"));
 
-        const QDir dir(modelDir);
-        encoder = std::make_unique<Ort::Session>(
-            ortEnv, ortPath(dir.filePath(QStringLiteral("encoder_model_fp16.onnx"))).c_str(), opts);
-        decoder = std::make_unique<Ort::Session>(
-            ortEnv, ortPath(dir.filePath(QStringLiteral("decoder_model_fp16.onnx"))).c_str(), opts);
-        decoderPast = std::make_unique<Ort::Session>(
-            ortEnv,
-            ortPath(dir.filePath(QStringLiteral("decoder_with_past_model_fp16.onnx"))).c_str(),
-            opts);
+    const bool sessionsBuilt = ort::buildSessions(
+        ortEnv, "whisper", /*sharedArena=*/false, &error,
+        [&](Ort::SessionOptions &opts) {
+            // fp16 graph fusions (SimplifiedLayerNormFusion) crash on load; disable them.
+            opts.SetGraphOptimizationLevel(ORT_DISABLE_ALL);
 
-        encInNames = names(*encoder, true);
-        encOutNames = names(*encoder, false);
-        decInNames = names(*decoder, true);
-        decOutNames = names(*decoder, false);
-        decpInNames = names(*decoderPast, true);
-        decpOutNames = names(*decoderPast, false);
-    } catch (const Ort::Exception &e) {
-        error = QStringLiteral("Failed to load Whisper model: ") + QString::fromUtf8(e.what());
+            encoder = std::make_unique<Ort::Session>(ortEnv, ortPath(encPath).c_str(), opts);
+            decoder = std::make_unique<Ort::Session>(ortEnv, ortPath(decPath).c_str(), opts);
+            decoderPast = std::make_unique<Ort::Session>(ortEnv, ortPath(decpPath).c_str(), opts);
+        });
+
+    if (!sessionsBuilt) {
+        error = QStringLiteral("Failed to load Whisper model: ") + error;
         return false;
     }
+
+    encInNames = names(*encoder, true);
+    encOutNames = names(*encoder, false);
+    decInNames = names(*decoder, true);
+    decOutNames = names(*decoder, false);
+    decpInNames = names(*decoderPast, true);
+    decpOutNames = names(*decoderPast, false);
 
     if (!tokenizer.load(QDir(modelDir).filePath(QStringLiteral("vocab.json")))) {
         error = QStringLiteral("Failed to load Whisper tokenizer (vocab.json).");

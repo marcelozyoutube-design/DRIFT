@@ -20,6 +20,7 @@
 #include "core/TextPresetStore.h"
 #include "core/TimelineOps.h"
 #include "core/Transition.h"
+#include "core/CustomProjectPlan.h"
 
 #include <cmath>
 
@@ -111,6 +112,12 @@ private slots:
     void applyMulticamSwitchMergesAdjacentSameCamera();
     void applyMulticamSwitchRejectsEdges();
     void sliceClipToTimelineRangeKeepsSourceInSync();
+    void customProjectRegex();
+    void customProjectDecibels();
+    void customProjectGapsAndFitting();
+    void customProjectKenBurns();
+    void customProjectMusicEnvelope();
+    void customProjectCTAAndBRoll();
 };
 
 void CoreTest::timeConversion()
@@ -3197,6 +3204,214 @@ void CoreTest::userEffectPresetsRoundTrip()
     QCoreApplication::setOrganizationName(org);
     QCoreApplication::setApplicationName(app);
     QStandardPaths::setTestModeEnabled(false);
+}
+
+
+void CoreTest::customProjectRegex()
+{
+    // Check standard digits at start of filename
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("1.mp4")), 1);
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("02_broll.jpg")), 2);
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("007_intro.mov")), 7);
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("10a.png")), 10);
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("999 - scene finale.mp4")), 999);
+
+    // Check filenames with no leading digits
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("scene.mp4")), -1);
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("video_01.mp4")), -1);
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("")), -1);
+    QCOMPARE(drift::extractSceneNumber(QStringLiteral("abc123.jpg")), -1);
+}
+
+void CoreTest::customProjectDecibels()
+{
+    // 0 dB = 1.0
+    QCOMPARE(drift::dbToLinearGain(0.0), 1.0);
+    // +6 dB ~ 1.99526
+    QVERIFY(std::abs(drift::dbToLinearGain(6.0) - 1.99526) < 0.001);
+    // -6 dB ~ 0.50118
+    QVERIFY(std::abs(drift::dbToLinearGain(-6.0) - 0.50118) < 0.001);
+    // -20 dB = 0.1
+    QVERIFY(std::abs(drift::dbToLinearGain(-20.0) - 0.1) < 0.0001);
+    // Extremely negative dB should be near zero (clamped / 10^(x/20))
+    QVERIFY(drift::dbToLinearGain(-100.0) >= 0.0);
+    QVERIFY(drift::dbToLinearGain(-100.0) < 0.0001);
+}
+
+void CoreTest::customProjectGapsAndFitting()
+{
+    drift::CustomProjectInput input;
+    // 3 cues in SRT: 1, 2, 3
+    drift::CustomSubtitleCue cue1;
+    cue1.index = 1;
+    cue1.startUs = 0;
+    cue1.endUs = drift::secondsToUs(5.0);
+    cue1.text = QStringLiteral("Cue one");
+
+    drift::CustomSubtitleCue cue2;
+    cue2.index = 2;
+    cue2.startUs = drift::secondsToUs(5.0);
+    cue2.endUs = drift::secondsToUs(10.0);
+    cue2.text = QStringLiteral("Cue two gap");
+
+    drift::CustomSubtitleCue cue3;
+    cue3.index = 3;
+    cue3.startUs = drift::secondsToUs(10.0);
+    cue3.endUs = drift::secondsToUs(15.0);
+    cue3.text = QStringLiteral("Cue three");
+
+    input.cues = {cue1, cue2, cue3};
+
+    // Candidate for cue 1: video of duration 10s (longer than cue 5s)
+    drift::CustomSceneCandidate cand1;
+    cand1.sceneNumber = 1;
+    cand1.filePath = QStringLiteral("/media/1.mp4");
+    cand1.isVideo = true;
+    cand1.mediaDurationUs = drift::secondsToUs(10.0);
+    input.sceneCandidates.insert(1, cand1);
+
+    // Missing candidate for cue 2 -> must produce an empty slot (GAP)!
+
+    // Candidate for cue 3: video of duration 2s (shorter than cue 5s)
+    drift::CustomSceneCandidate cand3;
+    cand3.sceneNumber = 3;
+    cand3.filePath = QStringLiteral("/media/3.mp4");
+    cand3.isVideo = true;
+    cand3.mediaDurationUs = drift::secondsToUs(2.0);
+    input.sceneCandidates.insert(3, cand3);
+
+    input.videoTrimStrategy = QStringLiteral("start");
+    input.minSpeed = 0.65;
+    input.maxSpeed = 1.25;
+
+    const drift::CustomProjectTimelinePlan plan = drift::planCustomProject(input);
+
+    QCOMPARE(plan.scenePlacements.size(), 3);
+
+    // Scene 1:
+    QVERIFY(!plan.scenePlacements[0].isEmpty);
+    QCOMPARE(plan.scenePlacements[0].sceneNumber, 1);
+    QCOMPARE(plan.scenePlacements[0].timelineStartUs, 0);
+    QCOMPARE(plan.scenePlacements[0].timelineDurationUs, drift::secondsToUs(5.0));
+
+    // Scene 2 (GAP):
+    QVERIFY(plan.scenePlacements[1].isEmpty);
+    QCOMPARE(plan.scenePlacements[1].sceneNumber, 2);
+    QCOMPARE(plan.scenePlacements[1].timelineStartUs, drift::secondsToUs(5.0));
+    QCOMPARE(plan.scenePlacements[1].timelineDurationUs, drift::secondsToUs(5.0));
+    QVERIFY(plan.scenePlacements[1].filePath.isEmpty());
+
+    // Scene 3 (shorter media 2s, target 5s):
+    QVERIFY(!plan.scenePlacements[2].isEmpty);
+    QCOMPARE(plan.scenePlacements[2].sceneNumber, 3);
+    QCOMPARE(plan.scenePlacements[2].timelineStartUs, drift::secondsToUs(10.0));
+    QCOMPARE(plan.scenePlacements[2].timelineDurationUs, drift::secondsToUs(5.0));
+    // Verify speed was clamped to minSpeed (0.65) or slowed down
+    QVERIFY(plan.scenePlacements[2].speed >= 0.65);
+}
+
+void CoreTest::customProjectKenBurns()
+{
+    const drift::KenBurnsGeometry kb0 = drift::computeKenBurnsGeometry(0, 0.15);
+    // Pan Left To Right:
+    // startScale ~ 1.15, endScale ~ 1.15
+    // startOffsetX > endOffsetX
+    QCOMPARE(kb0.startScale, 1.15);
+    QCOMPARE(kb0.endScale, 1.15);
+    QVERIFY(kb0.startOffsetX > kb0.endOffsetX);
+
+    const drift::KenBurnsGeometry kb2 = drift::computeKenBurnsGeometry(2, 0.20);
+    // Zoom In: startScale 1.0, endScale 1.20
+    QCOMPARE(kb2.startScale, 1.0);
+    QCOMPARE(kb2.endScale, 1.20);
+    QCOMPARE(kb2.startOffsetX, 0.0);
+    QCOMPARE(kb2.endOffsetX, 0.0);
+
+    const drift::KenBurnsGeometry kb3 = drift::computeKenBurnsGeometry(3, 0.10);
+    // Zoom Out: startScale 1.10, endScale 1.0
+    QCOMPARE(kb3.startScale, 1.10);
+    QCOMPARE(kb3.endScale, 1.0);
+}
+
+void CoreTest::customProjectMusicEnvelope()
+{
+    // Silence interval from 10s to 20s (duration 10s >= 4s threshold)
+    QVector<drift::SilenceInterval> silences;
+    silences.append(drift::SilenceInterval{drift::secondsToUs(10.0), drift::secondsToUs(20.0)});
+
+    const drift::TimeUs totalDurationUs = drift::secondsToUs(30.0);
+    const double baseDb = -18.0;
+    const double boostDb = 6.0;
+
+    const auto keyframes = drift::calculateMusicBoostKeyframes(
+        totalDurationUs,
+        silences,
+        baseDb,
+        boostDb,
+        drift::secondsToUs(4.0), // minSilenceUs
+        drift::secondsToUs(1.0)  // rampUs
+    );
+
+    // There should be keyframes generated around the silence
+    QVERIFY(!keyframes.isEmpty());
+    // At time 0, it should be at base gain
+    const double baseGain = drift::dbToLinearGain(baseDb);
+    const double boostedGain = drift::dbToLinearGain(baseDb + boostDb);
+    QCOMPARE(keyframes.first().timeUs, 0);
+    QCOMPARE(keyframes.first().value, baseGain);
+
+    // Find keyframe during silence (e.g. between 11s and 19s)
+    bool foundBoost = false;
+    for (const auto &kf : keyframes) {
+        if (kf.timeUs >= drift::secondsToUs(11.0) && kf.timeUs <= drift::secondsToUs(19.0)) {
+            if (std::abs(kf.value - boostedGain) < 0.001) {
+                foundBoost = true;
+                break;
+            }
+        }
+    }
+    QVERIFY(foundBoost);
+}
+
+void CoreTest::customProjectCTAAndBRoll()
+{
+    // Test B-Roll selection algorithm
+    drift::CustomProjectInput input;
+    for (int i = 1; i <= 10; ++i) {
+        drift::CustomSubtitleCue cue;
+        cue.index = i;
+        cue.startUs = drift::secondsToUs((i - 1) * 5.0);
+        cue.endUs = drift::secondsToUs(i * 5.0);
+        cue.text = QStringLiteral("Word %1 with extra commentary text to ensure length").arg(i);
+        input.cues.append(cue);
+    }
+
+    input.brollEnabled = true;
+    input.brollIntervalScenes = 3;
+    input.brollDurationSeconds = 4.0;
+    input.brollMinWords = 3;
+    input.brollMaxWords = 10;
+
+    const QSet<int> brollIndices = drift::selectBRollScenes(input);
+    // Should have selected scenes spaced roughly by interval
+    QVERIFY(!brollIndices.isEmpty());
+    for (int idx : brollIndices) {
+        QVERIFY(idx >= 0 && idx < input.cues.size());
+    }
+
+    // Test CTA planning
+    input.ctaEnabled = true;
+    input.ctaVisualPath = QStringLiteral("/cta/cta.mov");
+    input.ctaFirstAtSeconds = 10.0;
+    input.ctaIntervalSeconds = 15.0;
+    input.ctaVisualDurationSeconds = 5.0;
+
+    const drift::CustomProjectTimelinePlan plan = drift::planCustomProject(input);
+    // Total duration is 50s. First CTA at 10s, next at 25s, next at 40s -> 3 CTAs
+    QCOMPARE(plan.ctaPlacements.size(), 3);
+    QCOMPARE(plan.ctaPlacements[0].timelineStartUs, drift::secondsToUs(10.0));
+    QCOMPARE(plan.ctaPlacements[1].timelineStartUs, drift::secondsToUs(25.0));
+    QCOMPARE(plan.ctaPlacements[2].timelineStartUs, drift::secondsToUs(40.0));
 }
 
 QTEST_MAIN(CoreTest)

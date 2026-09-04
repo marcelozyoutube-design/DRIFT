@@ -361,6 +361,8 @@ add_library(driftcore STATIC
     src/core/Project.cpp
     src/core/TimelineOps.h
     src/core/TimelineOps.cpp
+    src/core/CustomProjectPlan.h
+    src/core/CustomProjectPlan.cpp
     src/core/commands/ProjectCommands.h
     src/core/commands/ProjectCommands.cpp
 )
@@ -574,6 +576,9 @@ qt_add_executable(drift
     src/models/UpdateChecker.cpp
     src/models/AppController.h
     src/models/AppController.cpp
+    src/models/CustomProjectAssembly.cpp
+    src/models/CustomProjectController.h
+    src/models/CustomProjectController.cpp
     src/models/EditorState.h
     src/models/LayoutStore.h
     src/models/LayoutStore.cpp
@@ -712,6 +717,7 @@ qt_add_qml_module(drift
         src/qml/components/preview/AndroidCropOverlay.qml
         src/qml/SegmentationWindow.qml
         src/qml/MulticamWindow.qml
+        src/qml/CustomProjectWindow.qml
         src/qml/DenoiseWindow.qml
         src/qml/SpeedCurveWindow.qml
         src/qml/FadeCurveWindow.qml

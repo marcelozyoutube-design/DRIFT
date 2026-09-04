@@ -21,6 +21,7 @@ public:
     Q_INVOKABLE QUrl openFile(const QString &title, const QStringList &nameFilters,
                               const QStringList &mimeTypeFilters = QStringList()) const;
     Q_INVOKABLE QList<QUrl> openFiles(const QString &title, const QStringList &nameFilters) const;
+    Q_INVOKABLE QUrl openDirectory(const QString &title, const QString &initialDirectory = QString()) const;
     // `suffix` is appended to `suggestedName` for the picker's initial file name; the path the
     // dialog returns is used exactly as given. `initialDirectory` opens the picker in that folder
     // when it exists (e.g. the last export location). `mimeTypeFilters` are used when those types

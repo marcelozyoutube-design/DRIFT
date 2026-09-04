@@ -404,6 +404,10 @@ ApplicationWindow {
         id: mediaPreviewWindow
     }
 
+    CustomProjectWindow {
+        id: customProjectWindow
+    }
+
     // Opened from the clip inspector; a window rather than a dialog so the timeline stays visible.
     function openSegmentation(track, clip, startSeconds, durationSeconds) {
         segmentationWindow.openFor(track, clip, startSeconds, durationSeconds)
@@ -429,6 +433,12 @@ ApplicationWindow {
     // not bound to one clip, so it survives any edit and only closes when the document does.
     function openMulticam() {
         multicamWindow.openSession()
+    }
+
+    // Opened from the header "Projeto Personalizado" button on Windows.
+    function openCustomProject() {
+        if (Qt.platform.os === "windows")
+            customProjectWindow.openSession()
     }
 
     // Opened from the header, and from every empty state that a missing addon causes.
@@ -561,6 +571,7 @@ ApplicationWindow {
             speedCurveWindow.close()
             fadeCurveWindow.close()
             multicamWindow.close()
+            customProjectWindow.close()
         }
 
         function onOpenMulticamWindowRequested() {

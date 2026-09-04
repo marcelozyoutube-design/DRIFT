@@ -4,18 +4,21 @@ name: Build
 # pushing a tag — a tag is public the moment release.yml finishes, so a failure there is expensive.
 # Android dry runs use org.cutwire.drift.ci so the APK installs beside a release build.
 on:
+  push:
+    branches:
+      - feature/custom-project
   workflow_dispatch:
     inputs:
       platforms:
         description: "Which platform(s) to build (pick one to test a single side first)"
         required: true
-        default: all
+        default: windows
         type: choice
         options:
+          - windows
           - all
           - flatpak
           - linux
-          - windows
           - macos
           - arch
           - android
@@ -45,6 +48,6 @@ jobs:
     uses: ./.github/workflows/package.yml
     with:
       version: ${{ needs.meta.outputs.version }}
-      platforms: ${{ inputs.platforms }}
+      platforms: ${{ inputs.platforms || 'windows' }}
       android_identity: ci
     secrets: inherit

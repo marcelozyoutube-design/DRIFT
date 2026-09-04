@@ -17,6 +17,7 @@ qt_add_executable(tst_editorstate
     # requestImage is called directly.
     ../src/MulticamImageProvider.cpp
     ../src/models/AppController.cpp
+    ../src/models/CustomProjectAssembly.cpp
     ../src/models/AddonManager.cpp
     ../src/models/AssetLibrary.cpp
     ../src/models/BinFolderListModel.cpp

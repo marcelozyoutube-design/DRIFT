@@ -561,6 +561,19 @@ Rectangle {
             }
 
             IconButton {
+                visible: Qt.platform.os === "windows"
+                glyph: Theme.icons.wand
+                variant: "ghost"
+                tooltip: qsTr("Projeto Personalizado")
+                anchors.verticalCenter: parent.verticalCenter
+                onClicked: {
+                    const win = root.Window.window
+                    if (win && win.openCustomProject)
+                        win.openCustomProject()
+                }
+            }
+
+            IconButton {
                 glyph: Theme.icons.bug
                 variant: "ghost"
                 tooltip: qsTr("Debug info")

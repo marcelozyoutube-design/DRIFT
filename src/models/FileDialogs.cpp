@@ -157,6 +157,21 @@ QList<QUrl> FileDialogs::openFiles(const QString &title, const QStringList &name
     return dialog.selectedUrls();
 }
 
+QUrl FileDialogs::openDirectory(const QString &title, const QString &initialDirectory) const
+{
+    QFileDialog dialog;
+    dialog.setWindowTitle(title);
+    dialog.setAcceptMode(QFileDialog::AcceptOpen);
+    dialog.setFileMode(QFileDialog::Directory);
+    dialog.setOption(QFileDialog::ShowDirsOnly, true);
+    if (!initialDirectory.isEmpty() && QDir(initialDirectory).exists())
+        dialog.setDirectory(initialDirectory);
+    if (dialog.exec() != QDialog::Accepted)
+        return {};
+    const QList<QUrl> urls = dialog.selectedUrls();
+    return urls.isEmpty() ? QUrl() : urls.first();
+}
+
 QUrl FileDialogs::saveFile(const QString &title, const QStringList &nameFilters,
                            const QString &suggestedName, const QString &suffix,
                            const QString &initialDirectory, const QStringList &mimeTypeFilters) const

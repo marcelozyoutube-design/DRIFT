@@ -29,6 +29,7 @@
 #include "core/EffectStackStore.h"
 #include "core/Project.h"
 #include "core/Track.h"
+#include "core/CustomProjectPlan.h"
 
 class EditorStateTest : public QObject
 {
@@ -125,6 +126,7 @@ private slots:
     void multicamProviderServesTilesByAngleIdWithRevisionQuery();
     void multicamSetUpBuildsAWorkingRigFromTheBin();
     void adjustmentLayerCreationAndCompositing();
+    void customProjectAssemblyAndUndo();
 };
 
 void EditorStateTest::snapTimeEnabled()
@@ -3556,6 +3558,158 @@ void EditorStateTest::adjustmentLayerCreationAndCompositing()
     QCOMPARE(tail.timelineDuration, drift::secondsToUs(18.0));
     QCOMPARE(head.effects.size(), 1);
     QCOMPARE(tail.effects.size(), 1);
+}
+
+
+void EditorStateTest::customProjectAssemblyAndUndo()
+{
+    AssetLibrary library;
+    AppController state(&library);
+
+    const int initialTrackCount = state.project()->tracks().size();
+
+    drift::CustomProjectPlan plan;
+    plan.isValid = true;
+    plan.projectName = QStringLiteral("Test Custom Project");
+    plan.targetDurationUs = drift::secondsToUs(20.0);
+    plan.narrationDelayUs = 0;
+    plan.narrationGain = 1.0;
+    plan.hasVisibleSubtitles = true;
+    plan.musicTrackCount = 1;
+
+    // 1. Scene Slots (scenes track)
+    // Slot 0: Video (0 to 5s)
+    drift::PlannedSceneSlot s0;
+    s0.sceneNumber = 1;
+    s0.timelineStartUs = 0;
+    s0.timelineDurationUs = drift::secondsToUs(5.0);
+    s0.media.path = QStringLiteral("/media/1.mp4");
+    s0.media.isVideo = true;
+    s0.media.durationUs = drift::secondsToUs(5.0);
+    s0.isEmpty = false;
+    s0.srcIn = 0;
+    s0.srcOut = drift::secondsToUs(5.0);
+    s0.speed = 1.0;
+    plan.sceneSlots.append(s0);
+
+    // Slot 1: GAP (5s to 10s)
+    drift::PlannedSceneSlot s1;
+    s1.sceneNumber = 2;
+    s1.timelineStartUs = drift::secondsToUs(5.0);
+    s1.timelineDurationUs = drift::secondsToUs(5.0);
+    s1.isEmpty = true;
+    plan.sceneSlots.append(s1);
+
+    // Slot 2: Image with Ken Burns (10s to 15s)
+    drift::PlannedSceneSlot s2;
+    s2.sceneNumber = 3;
+    s2.timelineStartUs = drift::secondsToUs(10.0);
+    s2.timelineDurationUs = drift::secondsToUs(5.0);
+    s2.media.path = QStringLiteral("/media/3.jpg");
+    s2.media.isVideo = false;
+    s2.media.durationUs = drift::secondsToUs(5.0);
+    s2.isEmpty = false;
+    s2.hasKenBurns = true;
+    s2.startX = 0; s2.startY = 0; s2.startW = 1920; s2.startH = 1080;
+    s2.endX = -100; s2.endY = -50; s2.endW = 2120; s2.endH = 1180;
+    plan.sceneSlots.append(s2);
+
+    // 2. CTA Occurrence
+    drift::PlannedCtaOccurrence cta;
+    cta.visualPath = QStringLiteral("/cta/cta.mov");
+    cta.visualStartUs = drift::secondsToUs(2.0);
+    cta.visualDurationUs = drift::secondsToUs(3.0);
+    cta.opacity = 0.85;
+    cta.hasBell = true;
+    cta.bellAudioPath = QStringLiteral("/cta/bell.wav");
+    cta.bellStartUs = drift::secondsToUs(2.0);
+    cta.bellDurationUs = drift::secondsToUs(1.0);
+    cta.bellGain = 0.7;
+    plan.ctaOccurrences.append(cta);
+
+    // 3. B-Roll
+    drift::PlannedBRoll broll;
+    broll.timelineStartUs = drift::secondsToUs(11.0);
+    broll.timelineDurationUs = drift::secondsToUs(3.0);
+    broll.text = QStringLiteral("Sample B-Roll Text");
+    broll.darkenOpacity = 0.6;
+    broll.typeDurationUs = drift::secondsToUs(2.0);
+    broll.hasKeyboardSound = true;
+    broll.keyboardAudioPath = QStringLiteral("/sfx/keys.wav");
+    broll.keyboardGain = 0.5;
+    plan.brolls.append(broll);
+
+    // 4. Subtitle Cues
+    drift::SubtitleCue cue;
+    cue.startUs = drift::secondsToUs(1.0);
+    cue.endUs = drift::secondsToUs(4.0);
+    cue.text = QStringLiteral("First line");
+    plan.syncCues.append(cue);
+
+    // Options map
+    QVariantMap options;
+    options.insert(QStringLiteral("narrationPath"), QStringLiteral("/audio/narration.mp3"));
+
+    // Build
+    const bool ok = state.buildCustomProject(plan, {}, options);
+    QVERIFY(ok);
+
+    const drift::Project *proj = state.project();
+    QVERIFY(proj != nullptr);
+    // Tracks: 0: B-Roll Text, 1: B-Roll Darken, 2: CTA, 3: Subtitles, 4: Scenes, 5: Narration, 6: SFX, 7: Music
+    QCOMPARE(proj->tracks().size(), 8);
+
+    // Check Track 0 (B-Roll Text)
+    QCOMPARE(proj->tracks().at(0).type, drift::TrackType::Text);
+    QCOMPARE(proj->tracks().at(0).clips.size(), 1);
+    QCOMPARE(proj->tracks().at(0).clips.at(0).textContent, QStringLiteral("Sample B-Roll Text"));
+
+    // Check Track 1 (B-Roll Darken Shape)
+    QCOMPARE(proj->tracks().at(1).type, drift::TrackType::Shape);
+    QCOMPARE(proj->tracks().at(1).clips.size(), 1);
+
+    // Check Track 2 (CTA)
+    QCOMPARE(proj->tracks().at(2).type, drift::TrackType::Video);
+    QCOMPARE(proj->tracks().at(2).clips.size(), 1);
+    QVERIFY(proj->tracks().at(2).clips.at(0).opacity.enabled());
+
+    // Check Track 3 (Subtitles)
+    QCOMPARE(proj->tracks().at(3).type, drift::TrackType::Subtitle);
+    QCOMPARE(proj->tracks().at(3).clips.size(), 1);
+    QCOMPARE(proj->tracks().at(3).clips.at(0).subtitleCues.size(), 1);
+
+    // Check Track 4 (Scenes)
+    QCOMPARE(proj->tracks().at(4).type, drift::TrackType::Video);
+    // Gap scene (s1) was empty, so only s0 and s2 are clips!
+    QCOMPARE(proj->tracks().at(4).clips.size(), 2);
+    const auto &c0 = proj->tracks().at(4).clips.at(0);
+    const auto &c1 = proj->tracks().at(4).clips.at(1);
+    QCOMPARE(c0.timelineStart, 0);
+    QCOMPARE(c0.timelineDuration, drift::secondsToUs(5.0));
+    QCOMPARE(c1.timelineStart, drift::secondsToUs(10.0));
+    QCOMPARE(c1.timelineDuration, drift::secondsToUs(5.0));
+    // Verify Ken Burns keyframes
+    QVERIFY(c1.transformX.enabled());
+    QCOMPARE(c1.transformX.keyframes().size(), 2);
+
+    // Check Track 5 (Narration)
+    QCOMPARE(proj->tracks().at(5).type, drift::TrackType::Audio);
+    QCOMPARE(proj->tracks().at(5).clips.size(), 1);
+
+    // Check Track 6 (SFX - bell + keyboard)
+    QCOMPARE(proj->tracks().at(6).type, drift::TrackType::Audio);
+    QCOMPARE(proj->tracks().at(6).clips.size(), 2);
+
+    // Test SINGLE-STEP ATOMIC UNDO:
+    QVERIFY(state.canUndo());
+    state.undo();
+    QCOMPARE(state.project()->tracks().size(), initialTrackCount);
+
+    // Test REDO:
+    QVERIFY(state.canRedo());
+    state.redo();
+    QCOMPARE(state.project()->tracks().size(), 8);
+    QCOMPARE(state.project()->tracks().at(4).clips.size(), 2);
 }
 
 QTEST_MAIN(EditorStateTest)
