@@ -856,9 +856,9 @@ ApplicationWindow {
                             // splits the row evenly between the two instead.
                             SplitView.preferredWidth: Math.max(0, innerSplit.width
                                                                * (window.portraitWorkspace ? 0.5 : 0.25))
-                            // Cap mins to available width so 200+320+240 never exceeds a
+                            // Cap mins to available width so 260+320+240 never exceeds a
                             // zero/partial first layout pass (Qt asserts max < min).
-                            SplitView.minimumWidth: Math.min(200, Math.max(0, innerSplit.width * 0.2))
+                            SplitView.minimumWidth: Math.min(260, Math.max(0, innerSplit.width * 0.25))
                             onWidthChanged: window.schedulePanelCapture()
                         }
 

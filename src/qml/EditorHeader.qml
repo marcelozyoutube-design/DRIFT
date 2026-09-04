@@ -290,7 +290,7 @@ Rectangle {
             IconButton {
                 glyph: Theme.icons.save
                 variant: "ghost"
-                text: qsTr("Save")
+                text: root.width >= 1080 ? qsTr("Save") : ""
                 tooltip: {
                     const keys = EditorState.shortcutFor("save")
                     return keys.length > 0 ? qsTr("Save project (%1)").arg(Theme.shortcutDisplay(keys))
@@ -303,7 +303,7 @@ Rectangle {
             IconButton {
                 glyph: Theme.icons.ratio
                 variant: "ghost"
-                text: qsTr("Video")
+                text: root.width >= 1080 ? qsTr("Video") : ""
                 active: videoSizeDialog.visible || EditorState.canvasCropMode
                 tooltip: qsTr("Video size and layout")
                 anchors.verticalCenter: parent.verticalCenter
@@ -359,7 +359,7 @@ Rectangle {
                     anchors.fill: parent
                     glyph: workspaceButton.portrait ? Theme.icons.smartphone : Theme.icons.monitor
                     variant: "ghost"
-                    text: qsTr("Workspace")
+                    text: root.width >= 1260 ? qsTr("Workspace") : ""
                     active: workspaceMenu.opened
                     tooltip: workspaceButton.portrait ? qsTr("Workspace: portrait")
                                                       : qsTr("Workspace: landscape")
@@ -401,7 +401,7 @@ Rectangle {
             IconButton {
                 glyph: Theme.darkMode ? Theme.icons.sun : Theme.icons.moon
                 variant: "ghost"
-                text: qsTr("Theme")
+                text: root.width >= 1260 ? qsTr("Theme") : ""
                 tooltip: Theme.darkMode ? qsTr("Switch to light mode") : qsTr("Switch to dark mode")
                 anchors.verticalCenter: parent.verticalCenter
                 onClicked: Theme.toggleDarkMode()
@@ -410,7 +410,7 @@ Rectangle {
             IconButton {
                 glyph: Theme.icons.languages
                 variant: "ghost"
-                text: qsTr("Language")
+                text: root.width >= 1260 ? qsTr("Language") : ""
                 tooltip: qsTr("Language for menus and labels")
                 anchors.verticalCenter: parent.verticalCenter
                 onClicked: languageChooserDialog.openFromHeader()
@@ -490,7 +490,7 @@ Rectangle {
                     anchors.fill: parent
                     glyph: Theme.icons.puzzle
                     variant: "ghost"
-                    text: qsTr("Extras")
+                    text: root.width >= 1260 ? qsTr("Extras") : ""
                     tooltip: extrasButton.attention
                              ? qsTr("Recommended packs and updates")
                              : qsTr("Extras")
@@ -536,7 +536,7 @@ Rectangle {
             IconButton {
                 glyph: Theme.icons.bot
                 variant: "ghost"
-                text: qsTr("Agent")
+                text: root.width >= 1260 ? qsTr("Agent") : ""
                 active: EditorState.mcpRunning
                 tooltip: EditorState.mcpRunning
                          ? qsTr("Agent access is on")

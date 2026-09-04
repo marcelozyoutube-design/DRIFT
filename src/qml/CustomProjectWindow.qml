@@ -19,6 +19,16 @@ Window {
         if (Qt.platform.os !== "windows")
             return
         CustomProject.refreshLists()
+        if (CustomProject.projectList.length > 0 && projectCombo.currentIndex < 0) {
+            projectCombo.currentIndex = 0
+            const p = CustomProject.loadProjectConfig(CustomProject.projectList[0])
+            root.syncFromProject(p)
+        }
+        if (CustomProject.profileList.length > 0 && profileCombo.currentIndex < 0) {
+            profileCombo.currentIndex = 0
+            const prof = CustomProject.loadProfile(CustomProject.profileList[0])
+            root.syncFromProfile(prof)
+        }
         root.show()
         root.raise()
         root.requestActivate()
@@ -181,109 +191,179 @@ Window {
         // Top Navigation & Profiles/Projects Bar
         Rectangle {
             Layout.fillWidth: true
-            height: 64
+            implicitHeight: topHeaderLayout.implicitHeight + Theme.spacingMd * 2
             color: Theme.panelBackground
             radius: Theme.radiusMd
             border.color: Theme.panelBorder
             border.width: 1
 
-            RowLayout {
+            ColumnLayout {
+                id: topHeaderLayout
                 anchors.fill: parent
                 anchors.margins: Theme.spacingMd
-                spacing: Theme.spacingMd
+                spacing: Theme.spacingSm
 
-                IconGlyph {
-                    glyph: Theme.icons.wand
-                    iconSize: Theme.iconSizeLg
-                    iconColor: Theme.primary
+                // Top line: Title, Subtitle, and prominent "+ Novo Projeto" button
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingMd
+
+                    IconGlyph {
+                        glyph: Theme.icons.wand
+                        iconSize: Theme.iconSizeLg
+                        iconColor: Theme.primary
+                    }
+
+                    Column {
+                        Text {
+                            text: qsTr("Projeto Personalizado")
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeMd
+                            font.weight: Font.DemiBold
+                            color: Theme.panelForeground
+                        }
+                        Text {
+                            text: qsTr("Montagem de vídeo orientada a SRT no Drift")
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.panelMuted
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    ThemedButton {
+                        text: qsTr("+ Novo Projeto")
+                        variant: "primary"
+                        glyph: Theme.icons.plus
+                        onClicked: newProjectDialog.openDialog()
+                    }
                 }
 
-                Column {
-                    Text {
-                        text: qsTr("Projeto Personalizado")
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeMd
-                        font.weight: Font.DemiBold
-                        color: Theme.panelForeground
-                    }
-                    Text {
-                        text: qsTr("Montagem de vídeo orientada a SRT no Drift")
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeXs
-                        color: Theme.panelMuted
-                    }
-                }
+                // Bottom line: Project Selector & Profile Selector with full CRUD
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingLg
 
-                Item { Layout.fillWidth: true }
+                    // Project Group
+                    Row {
+                        spacing: Theme.spacingSm
+                        Layout.alignment: Qt.AlignVCenter
 
-                // Profile Selector
-                Row {
-                    spacing: Theme.spacingSm
-                    anchors.verticalCenter: parent.verticalCenter
+                        ThemedLabel {
+                            text: qsTr("Projeto:")
+                            anchors.verticalCenter: parent.verticalCenter
+                            font.weight: Font.DemiBold
+                        }
 
-                    Text {
-                        text: qsTr("Perfil:")
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.panelMuted
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
+                        ThemedComboBox {
+                            id: projectCombo
+                            width: 170
+                            model: CustomProject.projectList
+                            onActivated: (index) => {
+                                if (index >= 0 && index < CustomProject.projectList.length) {
+                                    const p = CustomProject.loadProjectConfig(CustomProject.projectList[index])
+                                    root.syncFromProject(p)
+                                }
+                            }
+                        }
 
-                    ThemedComboBox {
-                        id: profileCombo
-                        width: 160
-                        model: CustomProject.profileList
-                        onActivated: (index) => {
-                            if (index >= 0 && index < CustomProject.profileList.length) {
-                                const p = CustomProject.loadProfile(CustomProject.profileList[index])
-                                root.syncFromProfile(p)
+                        ThemedButton {
+                            text: qsTr("Salvar")
+                            glyph: Theme.icons.save
+                            variant: "secondary"
+                            tooltip: qsTr("Salvar alterações no projeto atual")
+                            onClicked: {
+                                const name = projectCombo.currentText.trim()
+                                if (name.length > 0) {
+                                    CustomProject.saveProjectConfig(name, root.syncToProject())
+                                } else {
+                                    newProjectDialog.openDialog()
+                                }
+                            }
+                        }
+
+                        ThemedButton {
+                            text: qsTr("Excluir")
+                            glyph: Theme.icons.trash
+                            variant: "destructive"
+                            tooltip: qsTr("Excluir projeto selecionado")
+                            enabled: CustomProject.projectList.length > 0 && projectCombo.currentIndex >= 0
+                            onClicked: {
+                                if (projectCombo.currentText.length > 0)
+                                    deleteProjectDialog.openWith(projectCombo.currentText)
                             }
                         }
                     }
 
-                    ThemedButton {
-                        text: qsTr("Salvar Perfil")
-                        variant: "secondary"
-                        onClicked: {
-                            const name = profileCombo.currentText.length > 0 ? profileCombo.currentText : "Canal_Principal"
-                            CustomProject.saveProfile(name, root.syncToProfile())
+                    // Vertical Separator
+                    Rectangle {
+                        width: 1
+                        height: 24
+                        color: Theme.panelBorder
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    // Profile Group
+                    Row {
+                        spacing: Theme.spacingSm
+                        Layout.alignment: Qt.AlignVCenter
+
+                        ThemedLabel {
+                            text: qsTr("Perfil:")
+                            anchors.verticalCenter: parent.verticalCenter
+                            font.weight: Font.DemiBold
                         }
-                    }
-                }
 
-                // Project Selector
-                Row {
-                    spacing: Theme.spacingSm
-                    anchors.verticalCenter: parent.verticalCenter
+                        ThemedComboBox {
+                            id: profileCombo
+                            width: 170
+                            model: CustomProject.profileList
+                            onActivated: (index) => {
+                                if (index >= 0 && index < CustomProject.profileList.length) {
+                                    const p = CustomProject.loadProfile(CustomProject.profileList[index])
+                                    root.syncFromProfile(p)
+                                }
+                            }
+                        }
 
-                    Text {
-                        text: qsTr("Projeto:")
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.panelMuted
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
+                        ThemedButton {
+                            text: qsTr("+ Perfil")
+                            glyph: Theme.icons.plus
+                            variant: "ghost"
+                            tooltip: qsTr("Criar novo perfil de canal")
+                            onClicked: newProfileDialog.openDialog()
+                        }
 
-                    ThemedComboBox {
-                        id: projectCombo
-                        width: 160
-                        model: CustomProject.projectList
-                        onActivated: (index) => {
-                            if (index >= 0 && index < CustomProject.projectList.length) {
-                                const p = CustomProject.loadProjectConfig(CustomProject.projectList[index])
-                                root.syncFromProject(p)
+                        ThemedButton {
+                            text: qsTr("Salvar")
+                            glyph: Theme.icons.save
+                            variant: "secondary"
+                            tooltip: qsTr("Salvar alterações no perfil atual")
+                            onClicked: {
+                                const name = profileCombo.currentText.trim()
+                                if (name.length > 0) {
+                                    CustomProject.saveProfile(name, root.syncToProfile())
+                                } else {
+                                    newProfileDialog.openDialog()
+                                }
+                            }
+                        }
+
+                        ThemedButton {
+                            text: qsTr("Excluir")
+                            glyph: Theme.icons.trash
+                            variant: "destructive"
+                            tooltip: qsTr("Excluir perfil selecionado")
+                            enabled: CustomProject.profileList.length > 0 && profileCombo.currentIndex >= 0
+                            onClicked: {
+                                if (profileCombo.currentText.length > 0)
+                                    deleteProfileDialog.openWith(profileCombo.currentText)
                             }
                         }
                     }
 
-                    ThemedButton {
-                        text: qsTr("Salvar Config")
-                        variant: "secondary"
-                        onClicked: {
-                            const name = projectCombo.currentText.length > 0 ? projectCombo.currentText : "Video_01"
-                            CustomProject.saveProjectConfig(name, root.syncToProject())
-                        }
-                    }
+                    Item { Layout.fillWidth: true }
                 }
             }
         }
@@ -1346,6 +1426,54 @@ Window {
                         }
                     }
 
+                    // Project Configuration Quick Status & Save
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 48
+                        color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.08)
+                        radius: Theme.radiusSm
+                        border.color: Theme.primary
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingSm
+                            spacing: Theme.spacingMd
+
+                            IconGlyph {
+                                glyph: Theme.icons.save
+                                iconSize: Theme.iconSizeMd
+                                iconColor: Theme.primary
+                            }
+
+                            Text {
+                                text: projectCombo.currentText.length > 0
+                                      ? qsTr("Projeto salvo ativo: <b>%1</b>").arg(projectCombo.currentText)
+                                      : qsTr("Nenhum projeto salvo selecionado (configuração temporária)")
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.panelForeground
+                                textFormat: Text.RichText
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            ThemedButton {
+                                text: qsTr("Salvar Configuração do Projeto")
+                                variant: "secondary"
+                                glyph: Theme.icons.save
+                                onClicked: {
+                                    const name = projectCombo.currentText.trim()
+                                    if (name.length > 0) {
+                                        CustomProject.saveProjectConfig(name, root.syncToProject())
+                                    } else {
+                                        newProjectDialog.openDialog()
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Big Execute Button
                     ThemedButton {
                         Layout.fillWidth: true
@@ -1359,6 +1487,165 @@ Window {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // Dialogs for Project & Profile Management
+    ThemedDialog {
+        id: newProjectDialog
+        title: qsTr("Novo Projeto Personalizado")
+        acceptText: qsTr("Criar Projeto")
+        rejectText: qsTr("Cancelar")
+        preferredWidth: Theme.dialogWidthSm
+        acceptOnReturn: true
+
+        function openDialog() {
+            projectNameField.text = ""
+            open()
+            projectNameField.forceActiveFocus()
+        }
+
+        onAccepted: {
+            const name = projectNameField.text.trim()
+            if (name.length > 0) {
+                CustomProject.saveProjectConfig(name, root.syncToProject())
+                const idx = CustomProject.projectList.indexOf(name)
+                if (idx >= 0)
+                    projectCombo.currentIndex = idx
+            }
+        }
+
+        contentItem: Column {
+            spacing: Theme.spacingMd
+            width: parent ? parent.width : 320
+
+            ThemedLabel {
+                text: qsTr("Digite o nome do novo projeto:")
+            }
+
+            ThemedTextField {
+                id: projectNameField
+                width: parent.width
+                placeholderText: qsTr("Ex: Meu_Video_01")
+            }
+        }
+    }
+
+    ThemedDialog {
+        id: deleteProjectDialog
+        title: qsTr("Excluir Projeto")
+        acceptText: qsTr("Excluir")
+        rejectText: qsTr("Cancelar")
+        acceptVariant: "destructive"
+        acceptOnReturn: false
+        preferredWidth: Theme.dialogWidthSm
+
+        property string projectNameToDelete: ""
+
+        function openWith(name) {
+            projectNameToDelete = name
+            open()
+        }
+
+        onAccepted: {
+            if (projectNameToDelete.length > 0) {
+                CustomProject.deleteProjectConfig(projectNameToDelete)
+                if (CustomProject.projectList.length > 0) {
+                    projectCombo.currentIndex = 0
+                    const p = CustomProject.loadProjectConfig(CustomProject.projectList[0])
+                    root.syncFromProject(p)
+                }
+            }
+        }
+
+        contentItem: Column {
+            spacing: Theme.spacingMd
+            width: parent ? parent.width : 320
+
+            ThemedLabel {
+                wrapMode: Text.WordWrap
+                width: parent.width
+                text: qsTr("Tem certeza que deseja excluir o projeto \"%1\"?\nEsta ação removerá a configuração salva.").arg(deleteProjectDialog.projectNameToDelete)
+            }
+        }
+    }
+
+    ThemedDialog {
+        id: newProfileDialog
+        title: qsTr("Novo Perfil de Canal")
+        acceptText: qsTr("Criar Perfil")
+        rejectText: qsTr("Cancelar")
+        preferredWidth: Theme.dialogWidthSm
+        acceptOnReturn: true
+
+        function openDialog() {
+            profileNameField.text = ""
+            open()
+            profileNameField.forceActiveFocus()
+        }
+
+        onAccepted: {
+            const name = profileNameField.text.trim()
+            if (name.length > 0) {
+                CustomProject.saveProfile(name, root.syncToProfile())
+                const idx = CustomProject.profileList.indexOf(name)
+                if (idx >= 0)
+                    profileCombo.currentIndex = idx
+            }
+        }
+
+        contentItem: Column {
+            spacing: Theme.spacingMd
+            width: parent ? parent.width : 320
+
+            ThemedLabel {
+                text: qsTr("Digite o nome do novo perfil de canal:")
+            }
+
+            ThemedTextField {
+                id: profileNameField
+                width: parent.width
+                placeholderText: qsTr("Ex: Canal_Principal")
+            }
+        }
+    }
+
+    ThemedDialog {
+        id: deleteProfileDialog
+        title: qsTr("Excluir Perfil")
+        acceptText: qsTr("Excluir")
+        rejectText: qsTr("Cancelar")
+        acceptVariant: "destructive"
+        acceptOnReturn: false
+        preferredWidth: Theme.dialogWidthSm
+
+        property string profileNameToDelete: ""
+
+        function openWith(name) {
+            profileNameToDelete = name
+            open()
+        }
+
+        onAccepted: {
+            if (profileNameToDelete.length > 0) {
+                CustomProject.deleteProfile(profileNameToDelete)
+                if (CustomProject.profileList.length > 0) {
+                    profileCombo.currentIndex = 0
+                    const p = CustomProject.loadProfile(CustomProject.profileList[0])
+                    root.syncFromProfile(p)
+                }
+            }
+        }
+
+        contentItem: Column {
+            spacing: Theme.spacingMd
+            width: parent ? parent.width : 320
+
+            ThemedLabel {
+                wrapMode: Text.WordWrap
+                width: parent.width
+                text: qsTr("Tem certeza que deseja excluir o perfil \"%1\"?\nEsta ação removerá o perfil salvo.").arg(deleteProfileDialog.profileNameToDelete)
             }
         }
     }

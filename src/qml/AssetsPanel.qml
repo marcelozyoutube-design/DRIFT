@@ -831,6 +831,7 @@ PanelFrame {
                 // background, so the header read as a different surface than the
                 // panel it belongs to.
                 color: Theme.panelBackground
+                clip: true
 
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -901,7 +902,7 @@ PanelFrame {
                     }
 
                     ThemedButton {
-                        text: qsTr("New Folder")
+                        text: assetsContent.width >= 340 ? qsTr("New Folder") : ""
                         variant: "ghost"
                         glyph: Theme.icons.folder
                         tooltip: qsTr("Create a new folder here")
@@ -910,7 +911,7 @@ PanelFrame {
                     }
 
                     ThemedButton {
-                        text: qsTr("Import")
+                        text: assetsContent.width >= 300 ? qsTr("Import") : ""
                         variant: "ghost"
                         glyph: Theme.icons.upload
                         tooltip: qsTr("Import video, audio or image files")
