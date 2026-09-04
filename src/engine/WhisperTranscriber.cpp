@@ -30,6 +30,7 @@ extern "C" {
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <random>
 #include <string>
 #include <unordered_map>

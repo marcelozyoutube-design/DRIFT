@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "AppController.h"
 #include "core/CustomProjectPlan.h"
@@ -10,6 +10,9 @@
 #include <QString>
 #include <QVariantList>
 #include <QVariantMap>
+
+#include <atomic>
+#include <memory>
 
 class CustomProjectController : public QObject
 {
