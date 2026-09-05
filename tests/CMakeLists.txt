@@ -111,6 +111,7 @@ qt_add_executable(tst_mcp
     ../src/ClipPreviewImageStore.cpp
     ../src/MulticamImageStore.cpp
     ../src/models/AppController.cpp
+    ../src/models/CustomProjectAssembly.cpp
     ../src/models/AddonManager.cpp
     ../src/models/AssetLibrary.cpp
     ../src/models/BinFolderListModel.cpp
