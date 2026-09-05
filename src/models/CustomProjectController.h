@@ -87,6 +87,7 @@ public:
     Q_INVOKABLE void clearSceneOverride(int sceneNumber);
     Q_INVOKABLE void setSceneEmpty(int sceneNumber, bool empty);
     Q_INVOKABLE void setSceneLocked(int sceneNumber, bool locked);
+    Q_INVOKABLE void resolveAllConflicts();
 
     // --- SRT & Whisper Transcription ---
     Q_INVOKABLE bool loadSrtFile(const QString &filePath);

@@ -307,6 +307,23 @@ void CustomProjectController::setSceneLocked(int sceneNumber, bool locked)
     rebuildCandidates();
 }
 
+void CustomProjectController::resolveAllConflicts()
+{
+    for (auto it = m_primaryFound.begin(); it != m_primaryFound.end(); ++it) {
+        if (it.value().size() > 1) {
+            const QString chosen = it.value().first();
+            *it = QStringList{chosen};
+        }
+    }
+    for (auto it = m_secondaryFound.begin(); it != m_secondaryFound.end(); ++it) {
+        if (it.value().size() > 1) {
+            const QString chosen = it.value().first();
+            *it = QStringList{chosen};
+        }
+    }
+    rebuildCandidates();
+}
+
 void CustomProjectController::rebuildCandidates()
 {
     QSet<int> allNumbers;
@@ -794,9 +811,35 @@ QVariantMap CustomProjectController::buildPlanSummary(const QVariantMap &overrid
 {
     if (!overrideConfig.isEmpty()) {
         for (auto it = overrideConfig.begin(); it != overrideConfig.end(); ++it) {
-            m_currentProfile.insert(it.key(), it.value());
+            const QString k = it.key();
+            if (k == QLatin1String("primaryFolder")
+                || k == QLatin1String("secondaryFolder")
+                || k == QLatin1String("narrationPath")
+                || k == QLatin1String("srtPath")
+                || k == QLatin1String("narrationDelaySeconds")
+                || k == QLatin1String("narrationVolumeDb")
+                || k == QLatin1String("shuffle")
+                || k == QLatin1String("shuffleSeed")) {
+                m_currentProject.insert(k, it.value());
+            } else {
+                m_currentProfile.insert(k, it.value());
+            }
         }
     }
+
+    // Auto-load SRT if cues are empty and srtPath is set
+    const QString srtP = cleanPath(m_currentProject.value(QStringLiteral("srtPath")).toString());
+    if (!srtP.isEmpty() && m_cues.isEmpty()) {
+        loadSrtFile(srtP);
+    }
+
+    // Auto-scan if candidate scenes are empty and folders are set
+    const QString primF = cleanPath(m_currentProject.value(QStringLiteral("primaryFolder")).toString());
+    const QString secF = cleanPath(m_currentProject.value(QStringLiteral("secondaryFolder")).toString());
+    if (!primF.isEmpty() && m_candidateScenes.isEmpty()) {
+        scanFolders(primF, secF);
+    }
+
     drift::CustomProjectConfig cfg = buildInternalConfig();
     m_lastPlan = drift::planCustomProject(cfg);
 

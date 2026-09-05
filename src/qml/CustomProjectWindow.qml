@@ -252,6 +252,15 @@ Window {
         }
     }
 
+    function fullConfig() {
+        var conf = syncToProfile()
+        var proj = syncToProject()
+        for (var k in proj) {
+            conf[k] = proj[k]
+        }
+        return conf
+    }
+
     function syncFromProject(proj) {
         if (!proj) return
         if (proj.primaryFolder !== undefined) root.primaryFolder = proj.primaryFolder
@@ -580,6 +589,23 @@ Window {
                             glyph: Theme.icons.refresh
                             Layout.alignment: Qt.AlignBottom
                             onClicked: CustomProject.scanFolders(root.primaryFolder, root.secondaryFolder)
+                        }
+
+                        ThemedButton {
+                            text: qsTr("Processar e Ajustar ao SRT")
+                            variant: "secondary"
+                            glyph: Theme.icons.wand
+                            Layout.alignment: Qt.AlignBottom
+                            onClicked: {
+                                CustomProject.resolveAllConflicts()
+                                if (root.srtPath && root.srtPath.length > 0) {
+                                    CustomProject.loadSrtFile(root.srtPath)
+                                }
+                                scanFeedbackText.text = qsTr("Processado com sucesso: cortes e durações ajustados ao SRT.")
+                                if (typeof runValidation === "function") {
+                                    runValidation()
+                                }
+                            }
                         }
                     }
 
@@ -1045,6 +1071,26 @@ Window {
                 anchors.fill: parent
                 visible: root.activeTab === "audio"
 
+                function distributeMusicAcrossScenes() {
+                    if (!root.musicList || root.musicList.length === 0) return
+                    var total = CustomProject.totalScenesCount
+                    if (total <= 0) {
+                        total = (CustomProject.candidateScenes && CustomProject.candidateScenes.length > 0)
+                            ? CustomProject.candidateScenes.length : 100
+                    }
+                    var count = root.musicList.length
+                    var step = Math.max(1, Math.floor(total / count))
+                    var list = root.musicList.slice()
+                    for (var i = 0; i < count; ++i) {
+                        var start = i * step + 1
+                        var end = (i === count - 1) ? total : ((i + 1) * step)
+                        list[i].startScene = start
+                        list[i].endScene = end
+                        list[i].loop = true
+                    }
+                    root.musicList = list
+                }
+
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: Theme.spacingLg
@@ -1148,6 +1194,13 @@ Window {
                         }
                         Item { Layout.fillWidth: true }
                         ThemedButton {
+                            text: qsTr("Distribuir entre as Cenas")
+                            glyph: Theme.icons.columns
+                            variant: "secondary"
+                            enabled: root.musicList.length > 0
+                            onClicked: distributeMusicAcrossScenes()
+                        }
+                        ThemedButton {
                             text: qsTr("Adicionar Músicas...")
                             glyph: Theme.icons.fileText
                             onClicked: {
@@ -1188,6 +1241,11 @@ Window {
                         model: root.musicList
                         spacing: Theme.spacingSm
                         clip: true
+
+                        ScrollBar.vertical: ScrollBar {
+                            active: true
+                            policy: ScrollBar.AlwaysOn
+                        }
 
                         delegate: Rectangle {
                             width: parent.width
@@ -1389,7 +1447,9 @@ Window {
                     }
                     stopAudioPreview()
                     ctaIsPlayingPreview = true
-                    ctaPreviewImage.currentFrame = 0
+                    try {
+                        ctaPreviewImage.currentFrame = 0
+                    } catch (e) {}
                     ctaPreviewImage.playing = true
                     if (root.ctaBellAudioOffsetSeconds <= 0.05) {
                         if (root.ctaBellAudioPath.length > 0) {
@@ -1620,16 +1680,16 @@ Window {
                                         fillMode: Image.PreserveAspectFit
                                         source: toFileUrl(root.ctaVisualPath)
                                         playing: false
-                                        visible: root.ctaVisualPath.length > 0
+                                        visible: root.ctaVisualPath.length > 0 && status !== Image.Error
                                     }
 
                                     Text {
                                         anchors.centerIn: parent
-                                        text: root.ctaVisualPath.length > 0 ? "" : qsTr("Sem imagem/GIF")
+                                        text: ctaPreviewImage.status === Image.Error ? qsTr("Erro ao carregar visual") : (root.ctaVisualPath.length > 0 ? "" : qsTr("Sem imagem/GIF"))
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeXs
                                         color: Theme.panelMuted
-                                        visible: root.ctaVisualPath.length === 0
+                                        visible: root.ctaVisualPath.length === 0 || ctaPreviewImage.status === Image.Error
                                     }
                                 }
 
@@ -1654,14 +1714,53 @@ Window {
 
                                     RowLayout {
                                         spacing: Theme.spacingMd
-                                        ThemedButton {
-                                            Layout.preferredWidth: 280
-                                            Layout.preferredHeight: 38
-                                            text: ctaIsPlayingPreview ? qsTr("Parar Preview") : qsTr("Testar Preview CTA (Visual + Sino)")
-                                            variant: "primary"
-                                            glyph: ctaIsPlayingPreview ? Theme.icons.pause : Theme.icons.play
-                                            enabled: root.ctaVisualPath.length > 0 || root.ctaBellAudioPath.length > 0
-                                            onClicked: toggleCtaPreview()
+
+                                        Rectangle {
+                                            id: ctaPreviewBtn
+                                            width: 290
+                                            height: 40
+                                            radius: Theme.radiusSm
+                                            color: ctaIsPlayingPreview ? "#DC2626" : (ctaBtnMouse.containsMouse ? Qt.lighter(Theme.primary, 1.1) : Theme.primary)
+                                            border.color: Qt.rgba(255, 255, 255, 0.2)
+                                            border.width: 1
+                                            opacity: (root.ctaVisualPath.length > 0 || root.ctaBellAudioPath.length > 0) ? 1.0 : 0.6
+
+                                            Row {
+                                                anchors.centerIn: parent
+                                                spacing: Theme.spacingSm
+
+                                                IconGlyph {
+                                                    glyph: ctaIsPlayingPreview ? Theme.icons.pause : Theme.icons.play
+                                                    iconSize: Theme.iconSizeMd
+                                                    iconColor: Theme.primaryForeground
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+
+                                                Text {
+                                                    text: ctaIsPlayingPreview ? qsTr("Parar Visualização") : qsTr("Testar Preview CTA (Visual + Sino)")
+                                                    font.family: Theme.fontFamily
+                                                    font.pixelSize: Theme.fontSizeSm
+                                                    font.weight: Font.DemiBold
+                                                    color: Theme.primaryForeground
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+                                            }
+
+                                            MouseArea {
+                                                id: ctaBtnMouse
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: (root.ctaVisualPath.length > 0 || root.ctaBellAudioPath.length > 0) ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                onClicked: {
+                                                    if (root.ctaVisualPath.length > 0 || root.ctaBellAudioPath.length > 0) {
+                                                        toggleCtaPreview()
+                                                    }
+                                                }
+                                            }
+
+                                            Behavior on color {
+                                                ColorAnimation { duration: 150 }
+                                            }
                                         }
                                     }
                                 }
@@ -1987,11 +2086,15 @@ Window {
             }
 
             // TAB 7: REVIEW & ASSEMBLE
-            // TAB 7: REVIEW & ASSEMBLE
             Item {
                 id: reviewTabItem
                 anchors.fill: parent
                 visible: root.activeTab === "review"
+                onVisibleChanged: {
+                    if (visible) {
+                        runValidation()
+                    }
+                }
 
                 property var planSummary: ({})
                 property bool flowIsPlaying: false
@@ -2106,7 +2209,7 @@ Window {
                 }
 
                 function runValidation() {
-                    planSummary = CustomProject.buildPlanSummary(root.syncToProfile())
+                    planSummary = CustomProject.buildPlanSummary(root.fullConfig())
                     updateFlowState()
                 }
 
@@ -2151,11 +2254,12 @@ Window {
                             radius: Theme.radiusSm
                             color: Theme.panelBackground
                             border.color: Theme.panelBorder
-                            ColumnLayout {
+                            Column {
                                 anchors.centerIn: parent
-                                spacing: 1
-                                Text { text: qsTr("Total de Cenas"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.panelMuted; Layout.alignment: Qt.AlignHCenter }
-                                Text { text: String(planSummary.slotsCount !== undefined ? planSummary.slotsCount : (CustomProject.totalScenesCount || 0)); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.panelForeground; Layout.alignment: Qt.AlignHCenter }
+                                width: parent.width - 8
+                                spacing: 2
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Total de Cenas"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.panelMuted }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(planSummary.slotsCount !== undefined ? planSummary.slotsCount : (CustomProject.totalScenesCount || 0)); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.panelForeground }
                             }
                         }
 
@@ -2165,11 +2269,12 @@ Window {
                             radius: Theme.radiusSm
                             color: Theme.panelBackground
                             border.color: Theme.panelBorder
-                            ColumnLayout {
+                            Column {
                                 anchors.centerIn: parent
-                                spacing: 1
-                                Text { text: qsTr("Cenas Cortadas (Keep)"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.primary; Layout.alignment: Qt.AlignHCenter }
-                                Text { text: String(planSummary.cutScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.primary; Layout.alignment: Qt.AlignHCenter }
+                                width: parent.width - 8
+                                spacing: 2
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Cenas Cortadas (Keep)"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.primary }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(planSummary.cutScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.primary }
                             }
                         }
 
@@ -2179,11 +2284,12 @@ Window {
                             radius: Theme.radiusSm
                             color: Theme.panelBackground
                             border.color: Theme.panelBorder
-                            ColumnLayout {
+                            Column {
                                 anchors.centerIn: parent
-                                spacing: 1
-                                Text { text: qsTr("Aceleradas / Retimed"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.panelMuted; Layout.alignment: Qt.AlignHCenter }
-                                Text { text: String(planSummary.retimedScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.panelForeground; Layout.alignment: Qt.AlignHCenter }
+                                width: parent.width - 8
+                                spacing: 2
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Aceleradas / Retimed"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.panelMuted }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(planSummary.retimedScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.panelForeground }
                             }
                         }
 
@@ -2193,11 +2299,12 @@ Window {
                             radius: Theme.radiusSm
                             color: Theme.panelBackground
                             border.color: Theme.panelBorder
-                            ColumnLayout {
+                            Column {
                                 anchors.centerIn: parent
-                                spacing: 1
-                                Text { text: qsTr("Exatas / Ken Burns"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.success; Layout.alignment: Qt.AlignHCenter }
-                                Text { text: String(planSummary.exactScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.success; Layout.alignment: Qt.AlignHCenter }
+                                width: parent.width - 8
+                                spacing: 2
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Exatas / Ken Burns"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.success }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(planSummary.exactScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.success }
                             }
                         }
 
@@ -2207,11 +2314,12 @@ Window {
                             radius: Theme.radiusSm
                             color: Theme.panelBackground
                             border.color: Theme.panelBorder
-                            ColumnLayout {
+                            Column {
                                 anchors.centerIn: parent
-                                spacing: 1
-                                Text { text: qsTr("Estendidas / Gaps"); font.family: Theme.fontFamily; font.pixelSize: 10; color: (planSummary.extendedScenesCount > 0 ? Theme.warning : Theme.panelMuted); Layout.alignment: Qt.AlignHCenter }
-                                Text { text: String(planSummary.extendedScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: (planSummary.extendedScenesCount > 0 ? Theme.warning : Theme.panelForeground); Layout.alignment: Qt.AlignHCenter }
+                                width: parent.width - 8
+                                spacing: 2
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Estendidas / Gaps"); font.family: Theme.fontFamily; font.pixelSize: 10; color: (planSummary.extendedScenesCount > 0 ? Theme.warning : Theme.panelMuted) }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(planSummary.extendedScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: (planSummary.extendedScenesCount > 0 ? Theme.warning : Theme.panelForeground) }
                             }
                         }
                     }
