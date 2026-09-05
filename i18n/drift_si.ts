@@ -2890,6 +2890,46 @@
         <source>Track renamed</source>
         <translation>ට්‍රැකයේ නම වෙනස් කරන ලදී</translation>
     </message>
+    <message>
+        <source>Custom project plan is invalid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>B-Roll Text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>B-Roll Darken</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CTA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scenes</source>
+        <translation type="unfinished">දර්ශන</translation>
+    </message>
+    <message>
+        <source>Narration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sound Effects</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Music %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Assemble Custom Project</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Custom Project assembled</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>AssetCategoryChips</name>
@@ -3582,6 +3622,926 @@
     </message>
 </context>
 <context>
+    <name>CustomProjectController</name>
+    <message>
+        <source>Preparing Whisper engine...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Whisper unavailable: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not read audio duration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transcribing audio...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transcription finished</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AppController is not available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Plan validation failed with errors</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to assemble project on timeline</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Custom project successfully assembled!</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>CustomProjectWindow</name>
+    <message>
+        <source>Projeto Personalizado - Drift</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Projeto Personalizado</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Montagem de vídeo orientada a SRT no Drift</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>+ Novo Projeto</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Projeto:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Salvar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Salvar alterações no projeto atual</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Excluir</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Excluir projeto selecionado</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Perfil:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>+ Perfil</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Criar novo perfil de canal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Salvar alterações no perfil atual</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Excluir perfil selecionado</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>1. Cenas e Mídias</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>2. Ajuste e Ken Burns</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>3. Narração e Músicas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>4. CTA Recorrente</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>5. B-Rolls Textuais</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>6. Transições e Legendas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>7. Revisão e Montagem</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pasta Primária de Mídias (Cenas numeradas):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecionar...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pasta Primária</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pasta Secundária de Mídias (Fallback):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pasta Secundária</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Escanear Pastas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Processar e Ajustar ao SRT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Processado: tempos anteriores e ajustados calculados com sucesso.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Processado com inconsistências. Consulte os detalhes na Revisão.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Arquivo SRT de Legenda / Narração:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Carregar SRT...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Abrir SRT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SubRip Subtitles (*.srt);;Todos os Arquivos (*.*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transcrever com Whisper</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Total de Blocos: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preenchidos: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Gaps / Em Branco: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Conflitos: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Varredura concluída: %1 cenas mapeadas (%2 conflitos)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ir para cena # (ex: 45)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ir para Cena</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ir para Próximo Conflito</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cena</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Trecho SRT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mídia</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Antes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Depois</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Origem</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(Sem texto SRT)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>[ESPAÇO VAZIO / GAP PRESERVADO]</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Imagem</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Parar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation type="unfinished">පෙරදසුන</translation>
+    </message>
+    <message>
+        <source>Travado</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Travar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Restaurar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deixar Vazio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Substituir...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecionar Mídia para Cena #%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Arquivos de Vídeo e Imagem (*.mp4 *.mov *.png *.jpg *.jpeg *.webp *.gif *.bmp *.mkv *.webm *.avi)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Todos os Arquivos (*.*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Estratégia de Enquadramento e Ajuste de Duração de Vídeos:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Corte de Vídeos Longos:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preservar Início (Keep Start)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preservar Centro (Keep Center)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preservar Fim (Keep End)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Faixa de Ajuste Automático de Velocidade:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Silenciar áudio original dos vídeos das cenas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Volume padrão do áudio dos vídeos:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ouvir Volume de Teste</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Embaralhar cenas destravadas (Shuffle) mantendo cenas travadas no lugar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Efeito Ken Burns em Imagens Estáticas:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ativar Ken Burns (Zoom/Pan suave alternado para preencher a tela)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Intensidade do Zoom:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Narração Principal:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Caminho do arquivo de áudio da narração (.wav, .mp3)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecionar Narração</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Arquivos de Áudio (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ouvir Narração</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Volume da narração:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Atraso inicial:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Músicas de Fundo (Background Music - selecione múltiplas faixas):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Distribuir entre as Cenas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Adicionar Músicas...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Adicionar Músicas de Fundo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Arquivos de Áudio (*.mp3 *.wav *.aac *.ogg *.flac *.m4a)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Volume comum para todas:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Aplicar a Todas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Vol:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Boost</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Loop</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ouvir</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remover</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Início na Cena #:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fim na Cena #:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ativar Chamada para Ação Recorrente (CTA - Inscreva-se / Like)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Arquivo Visual do CTA (GIF animado, vídeo transparente ou imagem):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecione um arquivo .gif, .mov, .mp4, .png...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecionar Visual CTA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Arquivos Visuais (*.gif *.mov *.mp4 *.webm *.png *.jpg *.jpeg *.webp);;GIFs Animados (*.gif);;Todos os Arquivos (*.*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Efeito Sonoro do CTA (Sino / Chime):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecione um arquivo de som de sino (.wav, .mp3)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecionar Efeito Sonoro CTA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Arquivos de Áudio (*.wav *.mp3 *.aac *.ogg)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Parar Som</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ouvir Som</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Duração visual do CTA:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Momento do som (Offset no GIF):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Volume do som do CTA:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Primeira exibição:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Intervalo de repetição:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Erro ao carregar visual</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sem imagem/GIF/vídeo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preview do CTA Sincronizado</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Testa o visual (%1s) com o som do sino disparado exatamente aos %2s.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Parar Visualização</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Testar Preview CTA (Visual + Sino)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ativar B-Rolls Textuais (Efeito Máquina de Escrever + Escurecimento da Cena)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Quantidade de Cenas com B-Roll:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Intensidade do Escurecimento (Darken):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Efeito Sonoro de Teclado Mecânico (Keyboard Typing SFX):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecione um efeito sonoro de digitação...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecionar Som de Teclado</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ouvir Digitação</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Volume do som de digitação:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nenhuma</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fade</source>
+        <translation type="unfinished">Fade (ක්‍රමිකව මැකීම)</translation>
+    </message>
+    <message>
+        <source>Deslizar para Cima</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pop</source>
+        <translation type="unfinished">Pop</translation>
+    </message>
+    <message>
+        <source>Subir</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bounce</source>
+        <translation type="unfinished">ගැසීම (Bounce)</translation>
+    </message>
+    <message>
+        <source>Onda</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Máquina de Escrever</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transições de Cena:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Modo de Transição:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nenhuma (Corte Seco)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fixa (Escolher Tipo)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Aleatória (15 Efeitos YouTube)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tipo de Transição Fixa:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Crossfade Suave</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Push / Deslizar para Esquerda</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Wipe / Varredura Esquerda</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Wipe / Varredura Direita</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Wipe / Varredura Cima</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Wipe / Varredura Baixo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zoom In Dinâmico</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cross Zoom com Espiral</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Radial Zoom Blur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dip to Black (Fade Preto)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dip to White (Flash Branco)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Luma Fade Suave</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>VHS Glitch Scanlines</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RGB Glitch Displacement</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pixelate / Mosaico</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Duração da Transição:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Efeito Sonoro Whoosh (sincronizado nos cortes com transição):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecione o som de transição Whoosh (.wav, .mp3)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecionar Som Whoosh</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ouvir Whoosh</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Volume do som Whoosh:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Legendas Visíveis na Timeline:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Adicionar faixa de legendas visíveis na timeline geradas a partir do SRT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fonte:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tamanho:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Negrito</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cor do texto:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Contorno</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cor:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Espessura:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sombra</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fundo atrás da legenda</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cor do fundo:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Entrada:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Saída:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Duração:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Validar e Analisar Projeto</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>✓ Plano válido com %1 aviso(s) — %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>✓ Plano válido! Duração total: %1 (%2s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>✕ Plano inválido — %1 erro(s), %2 aviso(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Total de Cenas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cenas Cortadas (Keep)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Aceleradas / Retimed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Exatas / Ken Burns</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Estendidas / Gaps</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CTAs recorrentes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Monitor de Preview do Fluxo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pausar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation type="unfinished">ධාවනය කරන්න</translation>
+    </message>
+    <message>
+        <source>Detalhamento de Cenas e Ações:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 erro(s) • %2 aviso(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 aviso(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nenhuma inconsistência</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Inconsistências e avisos encontrados:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cena %1: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation type="unfinished">Normal (සාමාන්‍ය)</translation>
+    </message>
+    <message>
+        <source>Pular</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Salvar automaticamente em arquivo .drift nativo (opcional)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Destino .drift...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Salvar Projeto Drift</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Projetos Drift (*.drift)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Projeto salvo ativo: &lt;b&gt;%1&lt;/b&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nenhum projeto salvo selecionado (configuração temporária)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Salvar Configuração do Projeto</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>MONTAR PROJETO PERSONALIZADO NA TIMELINE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Novo Projeto Personalizado</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Criar Projeto</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancelar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Digite o nome do novo projeto:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ex: Meu_Video_01</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Excluir Projeto</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tem certeza que deseja excluir o projeto &quot;%1&quot;?
+Esta ação removerá a configuração salva.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Novo Perfil de Canal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Criar Perfil</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Digite o nome do novo perfil de canal:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ex: Canal_Principal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Excluir Perfil</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tem certeza que deseja excluir o perfil &quot;%1&quot;?
+Esta ação removerá o perfil salvo.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>DebugInfoDialog</name>
     <message>
         <source>Debug info</source>
@@ -3828,6 +4788,10 @@
     <message>
         <source>Agent access</source>
         <translation>නියෝජිත (Agent) ප්‍රවේශය</translation>
+    </message>
+    <message>
+        <source>Projeto Personalizado</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Export in progress (%1%) — click to view</source>
@@ -5889,37 +6853,6 @@ If playback stutters, try another.</source>
     <message>
         <source>Click to type an exact %1</source>
         <translation>නිශ්චිත %1ක් ඇතුළත් කිරීමට ක්ලික් කරන්න</translation>
-    </message>
-</context>
-<context>
-    <name>QObject</name>
-    <message>
-        <source>Measuring loudness…</source>
-        <translation>ශබ්ද ඝනත්වය මනිමින්…</translation>
-    </message>
-    <message>
-        <source>Identifying objects in scene %1 of %2…</source>
-        <translation>දර්ශනය %1 / %2 හි වස්තූන් හඳුනාගනිමින්…</translation>
-    </message>
-    <message>
-        <source>Nothing to scan in this clip</source>
-        <translation>මෙම ක්ලිප් එකේ ස්කෑන් කිරීමට කිසිවක් නැත</translation>
-    </message>
-    <message>
-        <source>Could not open the media file</source>
-        <translation>මාධ්‍ය ගොනුව විවෘත කිරීමට නොහැකි විය</translation>
-    </message>
-    <message>
-        <source>This file has no video to scan</source>
-        <translation>මෙම ගොනුවේ ස්කෑන් කිරීමට වීඩියෝවක් නොමැත</translation>
-    </message>
-    <message>
-        <source>Could not decode frame %1</source>
-        <translation>රූපරාමු %1 විකේතනය කිරීමට නොහැකි විය</translation>
-    </message>
-    <message>
-        <source>Scanning frame %1 of %2…</source>
-        <translation>රූපරාමු %1 / %2 ස්කෑන් කරමින්…</translation>
     </message>
 </context>
 <context>
