@@ -210,7 +210,12 @@ bool AppController::buildCustomProject(const drift::CustomProjectPlan &plan,
         if (!cta.visualPath.isEmpty() && cta.visualDurationUs > 0) {
             drift::Clip visualClip;
             visualClip.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-            visualClip.type = drift::isSupportedVideoFile(cta.visualPath) ? drift::ClipType::Video : drift::ClipType::Image;
+            // Animated GIFs must go through FFmpeg like video; treating them as an Image freezes
+            // the CTA on its first frame both in the timeline and in the exported project.
+            const bool animatedGif = QFileInfo(cta.visualPath).suffix().compare(
+                QStringLiteral("gif"), Qt::CaseInsensitive) == 0;
+            visualClip.type = (drift::isSupportedVideoFile(cta.visualPath) || animatedGif)
+                ? drift::ClipType::Video : drift::ClipType::Image;
             visualClip.path = cta.visualPath;
             visualClip.assetId = resolveAsset(cta.visualPath, visualClip.type);
             visualClip.name = QStringLiteral("CTA");

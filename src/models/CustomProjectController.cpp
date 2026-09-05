@@ -772,6 +772,40 @@ drift::CustomProjectConfig CustomProjectController::buildInternalConfig() const
 
     // Subtitles
     cfg.subtitle.visible = m_currentProfile.value(QStringLiteral("subtitlesVisible"), false).toBool();
+    cfg.subtitle.textStyle.fontFamily = m_currentProfile.value(
+        QStringLiteral("subtitleFontFamily"), QStringLiteral("Inter")).toString();
+    cfg.subtitle.textStyle.pixelSize = qBound(
+        12, m_currentProfile.value(QStringLiteral("subtitlePixelSize"), 64).toInt(), 240);
+    cfg.subtitle.textStyle.fontWeight = m_currentProfile.value(
+        QStringLiteral("subtitleBold"), true).toBool() ? 700 : 500;
+
+    const auto profileColor = [this](const QString &key, const QColor &fallback) {
+        const QColor parsed(m_currentProfile.value(key, fallback.name(QColor::HexArgb)).toString());
+        return parsed.isValid() ? parsed : fallback;
+    };
+    cfg.subtitle.textStyle.color = profileColor(QStringLiteral("subtitleColor"), Qt::white);
+    cfg.subtitle.textStyle.outlineEnabled = m_currentProfile.value(
+        QStringLiteral("subtitleOutlineEnabled"), true).toBool();
+    cfg.subtitle.textStyle.outlineWidth = qBound(
+        0.0, m_currentProfile.value(QStringLiteral("subtitleOutlineWidth"), 3.0).toDouble(), 16.0);
+    cfg.subtitle.textStyle.outlineColor = profileColor(QStringLiteral("subtitleOutlineColor"), Qt::black);
+    cfg.subtitle.textStyle.shadowEnabled = m_currentProfile.value(
+        QStringLiteral("subtitleShadowEnabled"), true).toBool();
+    cfg.subtitle.textStyle.boxEnabled = m_currentProfile.value(
+        QStringLiteral("subtitleBoxEnabled"), false).toBool();
+    cfg.subtitle.textStyle.boxColor = profileColor(
+        QStringLiteral("subtitleBoxColor"), QColor(0, 0, 0, 128));
+
+    const double subtitleAnimSeconds = qBound(
+        0.05, m_currentProfile.value(QStringLiteral("subtitleAnimDurationSeconds"), 0.35).toDouble(), 5.0);
+    cfg.subtitle.textStyle.animIn.kind = drift::textAnimKindFromString(
+        m_currentProfile.value(QStringLiteral("subtitleAnimIn"), QStringLiteral("fade")).toString());
+    cfg.subtitle.textStyle.animIn.durationUs = drift::secondsToUs(subtitleAnimSeconds);
+    cfg.subtitle.textStyle.animIn.ease = drift::TextEase::EaseOut;
+    cfg.subtitle.textStyle.animOut.kind = drift::textAnimKindFromString(
+        m_currentProfile.value(QStringLiteral("subtitleAnimOut"), QStringLiteral("fade")).toString());
+    cfg.subtitle.textStyle.animOut.durationUs = drift::secondsToUs(subtitleAnimSeconds);
+    cfg.subtitle.textStyle.animOut.ease = drift::TextEase::EaseInOut;
 
     // Silence ranges
     cfg.silenceRanges = m_silenceRanges;
@@ -844,12 +878,19 @@ QVariantMap CustomProjectController::buildPlanSummary(const QVariantMap &overrid
     m_lastPlan = drift::planCustomProject(cfg);
 
     m_validationMessages.clear();
+    int validationErrorCount = 0;
+    int validationWarningCount = 0;
     for (const auto &msg : m_lastPlan.messages) {
         QVariantMap m;
-        m.insert(QStringLiteral("severity"), msg.severity == drift::PlanValidationMessage::Severity::Error ? QStringLiteral("error") : QStringLiteral("warning"));
+        const bool isError = msg.severity == drift::PlanValidationMessage::Severity::Error;
+        m.insert(QStringLiteral("severity"), isError ? QStringLiteral("error") : QStringLiteral("warning"));
         m.insert(QStringLiteral("message"), msg.message);
         m.insert(QStringLiteral("sceneNumber"), msg.sceneNumber);
         m_validationMessages.append(m);
+        if (isError)
+            ++validationErrorCount;
+        else
+            ++validationWarningCount;
     }
 
     m_planValid = m_lastPlan.isValid;
@@ -870,6 +911,8 @@ QVariantMap CustomProjectController::buildPlanSummary(const QVariantMap &overrid
     summary.insert(QStringLiteral("ctaOccurrencesCount"), m_lastPlan.ctaOccurrences.size());
     summary.insert(QStringLiteral("brollsCount"), m_lastPlan.brolls.size());
     summary.insert(QStringLiteral("transitionsCount"), m_lastPlan.transitions.size());
+    summary.insert(QStringLiteral("errorCount"), validationErrorCount);
+    summary.insert(QStringLiteral("warningCount"), validationWarningCount);
     summary.insert(QStringLiteral("messages"), m_validationMessages);
 
     QVariantList sceneActions;
@@ -881,6 +924,9 @@ QVariantMap CustomProjectController::buildPlanSummary(const QVariantMap &overrid
         sm.insert(QStringLiteral("actionDescription"), slot.actionDescription);
         sm.insert(QStringLiteral("isEmpty"), slot.isEmpty);
         sm.insert(QStringLiteral("speed"), slot.speed);
+        sm.insert(QStringLiteral("sourceDurationSeconds"), drift::usToSeconds(slot.media.sourceDurationUs));
+        sm.insert(QStringLiteral("sourceInSeconds"), drift::usToSeconds(slot.srcIn));
+        sm.insert(QStringLiteral("sourceOutSeconds"), drift::usToSeconds(slot.srcOut));
         sm.insert(QStringLiteral("mediaPath"), slot.media.path);
         sm.insert(QStringLiteral("isVideo"), slot.media.isVideo);
         sm.insert(QStringLiteral("cueText"), slot.cueText);

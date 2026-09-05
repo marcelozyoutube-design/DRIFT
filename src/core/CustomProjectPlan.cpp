@@ -631,6 +631,18 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
     }
 
     // --- 4. Recurring CTA Planning ---
+    if (config.cta.enabled && config.cta.visualPath.isEmpty()) {
+        plan.messages.append(PlanValidationMessage{
+            PlanValidationMessage::Severity::Warning,
+            QStringLiteral("CTA is enabled, but no visual file was selected; no CTA will be added.")
+        });
+    } else if (config.cta.enabled && config.cta.firstAtUs >= plan.targetDurationUs) {
+        plan.messages.append(PlanValidationMessage{
+            PlanValidationMessage::Severity::Warning,
+            QStringLiteral("CTA is enabled, but its first display is after the end of the project.")
+        });
+    }
+
     if (config.cta.enabled && !config.cta.visualPath.isEmpty() && config.cta.intervalUs > 0) {
         int occurrenceIndex = 0;
         TimeUs ctaStart = config.cta.firstAtUs;

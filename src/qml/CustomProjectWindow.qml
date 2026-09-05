@@ -89,9 +89,27 @@ Window {
 
     // Subtitles
     property bool subtitlesVisible: false
+    property string subtitleFontFamily: "Inter"
+    property int subtitlePixelSize: 64
+    property bool subtitleBold: true
+    property string subtitleColor: "#ffffff"
+    property bool subtitleOutlineEnabled: true
+    property real subtitleOutlineWidth: 3.0
+    property string subtitleOutlineColor: "#000000"
+    property bool subtitleShadowEnabled: true
+    property bool subtitleBoxEnabled: false
+    property string subtitleBoxColor: "#80000000"
+    property string subtitleAnimIn: "fade"
+    property string subtitleAnimOut: "fade"
+    property real subtitleAnimDurationSeconds: 0.35
 
     // Music
     property var musicList: []
+    property real uniformMusicVolumeDb: -12.0
+
+    // Latest validation result is shared by Scenes and Review. Keeping it at the window scope
+    // also lets "Process and fit" refresh both tabs instead of trying to call a nested function.
+    property var planSummary: ({})
 
     // Save project destination
     property string saveProjectPath: ""
@@ -169,6 +187,27 @@ Window {
         playingAudioSource = ""
     }
 
+    function isVideoPath(path) {
+        if (!path) return false
+        const clean = urlToLocalPath(path).toLowerCase()
+        return /\.(mp4|mov|mkv|webm|avi|m4v|wmv)$/.test(clean)
+    }
+
+    function sceneActionFor(sceneNumber) {
+        const actions = root.planSummary.sceneActions || []
+        for (let i = 0; i < actions.length; ++i) {
+            if (actions[i].sceneNumber === sceneNumber)
+                return actions[i]
+        }
+        return null
+    }
+
+    function runValidation() {
+        const result = CustomProject.buildPlanSummary(root.fullConfig())
+        root.planSummary = result || ({})
+        return root.planSummary
+    }
+
     function syncToProfile() {
         return {
             videoTrimStrategy: root.videoTrimStrategy,
@@ -199,6 +238,19 @@ Window {
             transitionWhooshAudioPath: root.transitionWhooshAudioPath,
             transitionWhooshVolumeDb: root.transitionWhooshVolumeDb,
             subtitlesVisible: root.subtitlesVisible,
+            subtitleFontFamily: root.subtitleFontFamily,
+            subtitlePixelSize: root.subtitlePixelSize,
+            subtitleBold: root.subtitleBold,
+            subtitleColor: root.subtitleColor,
+            subtitleOutlineEnabled: root.subtitleOutlineEnabled,
+            subtitleOutlineWidth: root.subtitleOutlineWidth,
+            subtitleOutlineColor: root.subtitleOutlineColor,
+            subtitleShadowEnabled: root.subtitleShadowEnabled,
+            subtitleBoxEnabled: root.subtitleBoxEnabled,
+            subtitleBoxColor: root.subtitleBoxColor,
+            subtitleAnimIn: root.subtitleAnimIn,
+            subtitleAnimOut: root.subtitleAnimOut,
+            subtitleAnimDurationSeconds: root.subtitleAnimDurationSeconds,
             musicList: root.musicList,
             projectWidth: 1920,
             projectHeight: 1080,
@@ -236,7 +288,24 @@ Window {
         if (p.transitionWhooshAudioPath !== undefined) root.transitionWhooshAudioPath = p.transitionWhooshAudioPath
         if (p.transitionWhooshVolumeDb !== undefined) root.transitionWhooshVolumeDb = p.transitionWhooshVolumeDb
         if (p.subtitlesVisible !== undefined) root.subtitlesVisible = p.subtitlesVisible
-        if (p.musicList !== undefined) root.musicList = p.musicList
+        if (p.subtitleFontFamily !== undefined) root.subtitleFontFamily = p.subtitleFontFamily
+        if (p.subtitlePixelSize !== undefined) root.subtitlePixelSize = p.subtitlePixelSize
+        if (p.subtitleBold !== undefined) root.subtitleBold = p.subtitleBold
+        if (p.subtitleColor !== undefined) root.subtitleColor = p.subtitleColor
+        if (p.subtitleOutlineEnabled !== undefined) root.subtitleOutlineEnabled = p.subtitleOutlineEnabled
+        if (p.subtitleOutlineWidth !== undefined) root.subtitleOutlineWidth = p.subtitleOutlineWidth
+        if (p.subtitleOutlineColor !== undefined) root.subtitleOutlineColor = p.subtitleOutlineColor
+        if (p.subtitleShadowEnabled !== undefined) root.subtitleShadowEnabled = p.subtitleShadowEnabled
+        if (p.subtitleBoxEnabled !== undefined) root.subtitleBoxEnabled = p.subtitleBoxEnabled
+        if (p.subtitleBoxColor !== undefined) root.subtitleBoxColor = p.subtitleBoxColor
+        if (p.subtitleAnimIn !== undefined) root.subtitleAnimIn = p.subtitleAnimIn
+        if (p.subtitleAnimOut !== undefined) root.subtitleAnimOut = p.subtitleAnimOut
+        if (p.subtitleAnimDurationSeconds !== undefined) root.subtitleAnimDurationSeconds = p.subtitleAnimDurationSeconds
+        if (p.musicList !== undefined) {
+            root.musicList = p.musicList
+            if (p.musicList.length > 0 && p.musicList[0].volumeDb !== undefined)
+                root.uniformMusicVolumeDb = p.musicList[0].volumeDb
+        }
     }
 
     function syncToProject() {
@@ -601,10 +670,10 @@ Window {
                                 if (root.srtPath && root.srtPath.length > 0) {
                                     CustomProject.loadSrtFile(root.srtPath)
                                 }
-                                scanFeedbackText.text = qsTr("Processado com sucesso: cortes e durações ajustados ao SRT.")
-                                if (typeof runValidation === "function") {
-                                    runValidation()
-                                }
+                                const summary = root.runValidation()
+                                scanFeedbackText.text = summary.isValid
+                                    ? qsTr("Processado: tempos anteriores e ajustados calculados com sucesso.")
+                                    : qsTr("Processado com inconsistências. Consulte os detalhes na Revisão.")
                             }
                         }
                     }
@@ -765,6 +834,29 @@ Window {
                             clip: true
                             model: CustomProject.candidateScenes
                             spacing: 4
+                            headerPositioning: ListView.OverlayHeader
+
+                            header: Rectangle {
+                                width: scenesList.width - (scenesListScrollBar.visible ? scenesListScrollBar.width + 4 : 0)
+                                height: 28
+                                z: 2
+                                color: Theme.panelBackground
+                                border.color: Theme.panelBorder
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: Theme.spacingSm
+                                    anchors.rightMargin: Theme.spacingSm
+                                    spacing: Theme.spacingMd
+                                    Text { text: qsTr("Cena"); font.family: Theme.fontFamily; font.pixelSize: 10; font.weight: Font.Bold; color: Theme.panelMuted; Layout.preferredWidth: 40 }
+                                    Text { text: qsTr("Trecho SRT"); font.family: Theme.fontFamily; font.pixelSize: 10; font.weight: Font.Bold; color: Theme.panelMuted; Layout.preferredWidth: 160 }
+                                    Text { text: qsTr("Mídia"); font.family: Theme.fontFamily; font.pixelSize: 10; font.weight: Font.Bold; color: Theme.panelMuted; Layout.fillWidth: true }
+                                    Text { text: qsTr("Antes"); font.family: Theme.fontFamily; font.pixelSize: 10; font.weight: Font.Bold; color: Theme.panelMuted; horizontalAlignment: Text.AlignHCenter; Layout.preferredWidth: 58 }
+                                    Text { text: qsTr("Depois"); font.family: Theme.fontFamily; font.pixelSize: 10; font.weight: Font.Bold; color: Theme.panelMuted; horizontalAlignment: Text.AlignHCenter; Layout.preferredWidth: 58 }
+                                    Text { text: qsTr("Origem"); font.family: Theme.fontFamily; font.pixelSize: 10; font.weight: Font.Bold; color: Theme.panelMuted; horizontalAlignment: Text.AlignHCenter; Layout.preferredWidth: 70 }
+                                    Item { Layout.preferredWidth: 350 }
+                                }
+                            }
 
                             ScrollBar.vertical: ScrollBar {
                                 id: scenesListScrollBar
@@ -774,8 +866,9 @@ Window {
 
                             delegate: Rectangle {
                                 id: sceneRow
+                                property var plannedAction: root.sceneActionFor(modelData.sceneNumber)
                                 width: scenesList.width - (scenesListScrollBar.visible ? scenesListScrollBar.width + 4 : 0)
-                                height: 44
+                                height: 48
                                 radius: Theme.radiusSm
                                 color: modelData.isConflict ? Qt.rgba(1, 0.7, 0, 0.15) : (modelData.isEmpty ? Qt.rgba(1, 1, 1, 0.03) : Theme.panelBackground)
                                 border.color: modelData.isConflict ? Theme.warning : Theme.panelBorder
@@ -801,7 +894,7 @@ Window {
                                         font.pixelSize: Theme.fontSizeXs
                                         color: Theme.panelMuted
                                         elide: Text.ElideRight
-                                        Layout.preferredWidth: 260
+                                        Layout.preferredWidth: 160
                                     }
 
                                     Text {
@@ -812,6 +905,29 @@ Window {
                                         color: modelData.isEmpty ? Theme.panelMuted : Theme.panelForeground
                                         elide: Text.ElideMiddle
                                         Layout.fillWidth: true
+                                    }
+
+                                    Text {
+                                        text: modelData.isVideo && modelData.durationSeconds > 0
+                                              ? Number(modelData.durationSeconds).toFixed(1) + "s"
+                                              : (modelData.isEmpty ? "--" : qsTr("Imagem"))
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: Theme.panelMuted
+                                        horizontalAlignment: Text.AlignHCenter
+                                        Layout.preferredWidth: 58
+                                    }
+
+                                    Text {
+                                        text: sceneRow.plannedAction
+                                              ? Number(sceneRow.plannedAction.timelineDurationSeconds).toFixed(1) + "s"
+                                              : "--"
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        font.weight: Font.DemiBold
+                                        color: sceneRow.plannedAction ? Theme.success : Theme.panelMuted
+                                        horizontalAlignment: Text.AlignHCenter
+                                        Layout.preferredWidth: 58
                                     }
 
                                     // Origin Badge
@@ -1073,6 +1189,7 @@ Window {
 
                 function distributeMusicAcrossScenes() {
                     if (!root.musicList || root.musicList.length === 0) return
+                    const oldY = musicListView.contentY
                     var total = CustomProject.totalScenesCount
                     if (total <= 0) {
                         total = (CustomProject.candidateScenes && CustomProject.candidateScenes.length > 0)
@@ -1089,6 +1206,42 @@ Window {
                         list[i].loop = true
                     }
                     root.musicList = list
+                    restoreMusicScroll(oldY)
+                }
+
+                function restoreMusicScroll(contentY) {
+                    Qt.callLater(function() {
+                        const maximum = Math.max(musicListView.originY,
+                                                 musicListView.contentHeight - musicListView.height)
+                        musicListView.contentY = Math.max(musicListView.originY,
+                                                          Math.min(contentY, maximum))
+                    })
+                }
+
+                function updateMusicEntry(entryIndex, field, newValue) {
+                    if (entryIndex < 0 || entryIndex >= root.musicList.length)
+                        return
+                    // Keep the model object and its delegate alive. Reassigning the entire JS
+                    // array here reset the ListView to the top on every slider movement.
+                    root.musicList[entryIndex][field] = newValue
+                }
+
+                function applyUniformMusicVolume() {
+                    if (!root.musicList || root.musicList.length === 0)
+                        return
+                    const oldY = musicListView.contentY
+                    const rounded = Math.round(root.uniformMusicVolumeDb * 10) / 10
+                    const list = []
+                    for (let i = 0; i < root.musicList.length; ++i) {
+                        const updated = ({})
+                        const current = root.musicList[i]
+                        for (const key in current)
+                            updated[key] = current[key]
+                        updated.volumeDb = rounded
+                        list.push(updated)
+                    }
+                    root.musicList = list
+                    restoreMusicScroll(oldY)
                 }
 
                 ColumnLayout {
@@ -1217,7 +1370,7 @@ Window {
                                         list.push({
                                             path: p,
                                             label: baseName || ("Música " + (list.length + 1)),
-                                            volumeDb: -12.0,
+                                            volumeDb: root.uniformMusicVolumeDb,
                                             silenceBoost: true,
                                             boostTargetDb: -3.0,
                                             startScene: 0,
@@ -1235,7 +1388,42 @@ Window {
                         }
                     }
 
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+
+                        Text {
+                            text: qsTr("Volume comum para todas:")
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.panelMuted
+                        }
+                        ThemedSlider {
+                            Layout.preferredWidth: 220
+                            from: -40.0
+                            to: 15.0
+                            value: root.uniformMusicVolumeDb
+                            onValueChanged: root.uniformMusicVolumeDb = Math.round(value * 10) / 10
+                        }
+                        Text {
+                            text: (root.uniformMusicVolumeDb > 0 ? "+" : "") + root.uniformMusicVolumeDb + " dB"
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.panelForeground
+                            Layout.preferredWidth: 62
+                        }
+                        ThemedButton {
+                            text: qsTr("Aplicar a Todas")
+                            glyph: Theme.icons.check
+                            variant: "secondary"
+                            enabled: root.musicList.length > 0
+                            onClicked: applyUniformMusicVolume()
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+
                     ListView {
+                        id: musicListView
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         model: root.musicList
@@ -1288,21 +1476,19 @@ Window {
                                         color: Theme.panelMuted
                                     }
                                     ThemedSlider {
+                                        id: musicVolumeSlider
                                         Layout.preferredWidth: 120
                                         from: -40.0
                                         to: 15.0
                                         value: (modelData.volumeDb !== undefined) ? modelData.volumeDb : -12.0
                                         onValueChanged: {
                                             const rounded = Math.round(value * 10) / 10
-                                            if (modelData.volumeDb !== rounded) {
-                                                const list = root.musicList.slice()
-                                                list[index].volumeDb = rounded
-                                                root.musicList = list
-                                            }
+                                            if (modelData.volumeDb !== rounded)
+                                                updateMusicEntry(index, "volumeDb", rounded)
                                         }
                                     }
                                     Text {
-                                        text: ((modelData.volumeDb > 0) ? "+" : "") + ((modelData.volumeDb !== undefined) ? modelData.volumeDb : -12.0) + " dB"
+                                        text: (musicVolumeSlider.value > 0 ? "+" : "") + (Math.round(musicVolumeSlider.value * 10) / 10) + " dB"
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeXs
                                         color: Theme.panelForeground
@@ -1312,18 +1498,16 @@ Window {
                                         text: qsTr("Boost")
                                         checked: modelData.silenceBoost !== undefined ? modelData.silenceBoost : true
                                         onCheckedChanged: {
-                                            const list = root.musicList.slice()
-                                            list[index].silenceBoost = checked
-                                            root.musicList = list
+                                            if (modelData.silenceBoost !== checked)
+                                                updateMusicEntry(index, "silenceBoost", checked)
                                         }
                                     }
                                     ThemedCheckBox {
                                         text: qsTr("Loop")
                                         checked: modelData.loop !== undefined ? modelData.loop : false
                                         onCheckedChanged: {
-                                            const list = root.musicList.slice()
-                                            list[index].loop = checked
-                                            root.musicList = list
+                                            if (modelData.loop !== checked)
+                                                updateMusicEntry(index, "loop", checked)
                                         }
                                     }
                                     ThemedButton {
@@ -1339,9 +1523,11 @@ Window {
                                             if (playingAudioSource === urlToLocalPath(modelData.path)) {
                                                 stopAudioPreview()
                                             }
+                                            const oldY = musicListView.contentY
                                             const list = root.musicList.slice()
                                             list.splice(index, 1)
                                             root.musicList = list
+                                            restoreMusicScroll(oldY)
                                         }
                                     }
                                 }
@@ -1362,9 +1548,7 @@ Window {
                                         placeholderText: "0"
                                         onEditingFinished: {
                                             const val = parseInt(text) || 0
-                                            const list = root.musicList.slice()
-                                            list[index].startScene = Math.max(0, val)
-                                            root.musicList = list
+                                            updateMusicEntry(index, "startScene", Math.max(0, val))
                                         }
                                     }
                                     Text {
@@ -1388,9 +1572,7 @@ Window {
                                         placeholderText: "0"
                                         onEditingFinished: {
                                             const val = parseInt(text) || 0
-                                            const list = root.musicList.slice()
-                                            list[index].endScene = Math.max(0, val)
-                                            root.musicList = list
+                                            updateMusicEntry(index, "endScene", Math.max(0, val))
                                         }
                                     }
                                     Text {
@@ -1413,6 +1595,21 @@ Window {
                 anchors.fill: parent
                 visible: root.activeTab === "cta"
 
+                MediaPlayer {
+                    id: ctaPreviewVideoPlayer
+                    source: root.isVideoPath(root.ctaVisualPath) ? toFileUrl(root.ctaVisualPath) : ""
+                    videoOutput: ctaPreviewVideoOutput
+                    loops: MediaPlayer.Infinite
+                    audioOutput: AudioOutput { muted: true }
+                    onMediaStatusChanged: {
+                        if (mediaStatus === MediaPlayer.EndOfMedia && ctaIsPlayingPreview) {
+                            ctaPreviewStopTimer.stop()
+                            ctaIsPlayingPreview = false
+                            stopAudioPreview()
+                        }
+                    }
+                }
+
                 Timer {
                     id: ctaBellOffsetTimer
                     interval: Math.max(10, Math.round(root.ctaBellAudioOffsetSeconds * 1000))
@@ -1430,6 +1627,7 @@ Window {
                     repeat: false
                     onTriggered: {
                         ctaPreviewImage.playing = false
+                        ctaPreviewVideoPlayer.stop()
                         ctaIsPlayingPreview = false
                         stopAudioPreview()
                     }
@@ -1441,16 +1639,24 @@ Window {
                         ctaBellOffsetTimer.stop()
                         ctaPreviewStopTimer.stop()
                         ctaPreviewImage.playing = false
+                        ctaPreviewVideoPlayer.stop()
                         ctaIsPlayingPreview = false
                         stopAudioPreview()
                         return
                     }
                     stopAudioPreview()
                     ctaIsPlayingPreview = true
-                    try {
-                        ctaPreviewImage.currentFrame = 0
-                    } catch (e) {}
-                    ctaPreviewImage.playing = true
+                    if (root.isVideoPath(root.ctaVisualPath)) {
+                        ctaPreviewImage.playing = false
+                        ctaPreviewVideoPlayer.stop()
+                        ctaPreviewVideoPlayer.setPosition(0)
+                        ctaPreviewVideoPlayer.play()
+                    } else {
+                        try {
+                            ctaPreviewImage.currentFrame = 0
+                        } catch (e) {}
+                        ctaPreviewImage.playing = true
+                    }
                     if (root.ctaBellAudioOffsetSeconds <= 0.05) {
                         if (root.ctaBellAudioPath.length > 0) {
                             playAudioPreview(root.ctaBellAudioPath, root.ctaBellVolumeDb)
@@ -1613,7 +1819,7 @@ Window {
                             }
                             ThemedSlider {
                                 width: 160
-                                from: 60
+                                from: 0
                                 to: 1200
                                 value: root.ctaFirstAtSeconds
                                 onValueChanged: root.ctaFirstAtSeconds = value
@@ -1678,18 +1884,33 @@ Window {
                                         width: Math.min(parent.width, implicitWidth > 0 ? implicitWidth : parent.width)
                                         height: Math.min(parent.height, implicitHeight > 0 ? implicitHeight : parent.height)
                                         fillMode: Image.PreserveAspectFit
-                                        source: toFileUrl(root.ctaVisualPath)
+                                        source: root.isVideoPath(root.ctaVisualPath) ? "" : toFileUrl(root.ctaVisualPath)
                                         playing: false
-                                        visible: root.ctaVisualPath.length > 0 && status !== Image.Error
+                                        visible: root.ctaVisualPath.length > 0
+                                                 && !root.isVideoPath(root.ctaVisualPath)
+                                                 && status !== Image.Error
+                                    }
+
+                                    VideoOutput {
+                                        id: ctaPreviewVideoOutput
+                                        anchors.fill: parent
+                                        fillMode: VideoOutput.PreserveAspectFit
+                                        visible: root.ctaVisualPath.length > 0
+                                                 && root.isVideoPath(root.ctaVisualPath)
                                     }
 
                                     Text {
                                         anchors.centerIn: parent
-                                        text: ctaPreviewImage.status === Image.Error ? qsTr("Erro ao carregar visual") : (root.ctaVisualPath.length > 0 ? "" : qsTr("Sem imagem/GIF"))
+                                        text: (!root.isVideoPath(root.ctaVisualPath) && ctaPreviewImage.status === Image.Error)
+                                              || (root.isVideoPath(root.ctaVisualPath) && ctaPreviewVideoPlayer.error !== MediaPlayer.NoError)
+                                              ? qsTr("Erro ao carregar visual")
+                                              : (root.ctaVisualPath.length > 0 ? "" : qsTr("Sem imagem/GIF/vídeo"))
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeXs
                                         color: Theme.panelMuted
-                                        visible: root.ctaVisualPath.length === 0 || ctaPreviewImage.status === Image.Error
+                                        visible: root.ctaVisualPath.length === 0
+                                                 || (!root.isVideoPath(root.ctaVisualPath) && ctaPreviewImage.status === Image.Error)
+                                                 || (root.isVideoPath(root.ctaVisualPath) && ctaPreviewVideoPlayer.error !== MediaPlayer.NoError)
                                     }
                                 }
 
@@ -1902,8 +2123,15 @@ Window {
 
             // TAB 6: TRANSITIONS & SUBTITLES
             Item {
+                id: transitionsTabItem
                 anchors.fill: parent
                 visible: root.activeTab === "transitions"
+
+                property var subtitleAnimationIds: ["none", "fade", "slideUp", "pop", "rise", "bounce", "wave", "typewriter"]
+                property var subtitleAnimationLabels: [
+                    qsTr("Nenhuma"), qsTr("Fade"), qsTr("Deslizar para Cima"), qsTr("Pop"),
+                    qsTr("Subir"), qsTr("Bounce"), qsTr("Onda"), qsTr("Máquina de Escrever")
+                ]
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -2081,6 +2309,133 @@ Window {
                         onCheckedChanged: root.subtitlesVisible = checked
                     }
 
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: root.subtitlesVisible
+                        spacing: Theme.spacingMd
+
+                        Text { text: qsTr("Fonte:"); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelMuted }
+                        ThemedTextField {
+                            Layout.preferredWidth: 170
+                            text: root.subtitleFontFamily
+                            placeholderText: "Inter"
+                            onEditingFinished: root.subtitleFontFamily = text.trim().length > 0 ? text.trim() : "Inter"
+                        }
+                        Text { text: qsTr("Tamanho:"); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelMuted }
+                        ThemedSlider {
+                            Layout.preferredWidth: 150
+                            from: 24
+                            to: 120
+                            stepSize: 1
+                            value: root.subtitlePixelSize
+                            onValueChanged: root.subtitlePixelSize = Math.round(value)
+                        }
+                        Text { text: root.subtitlePixelSize + " px"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelForeground; Layout.preferredWidth: 48 }
+                        ThemedCheckBox {
+                            text: qsTr("Negrito")
+                            checked: root.subtitleBold
+                            onCheckedChanged: root.subtitleBold = checked
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: root.subtitlesVisible
+                        spacing: Theme.spacingMd
+
+                        Text { text: qsTr("Cor do texto:"); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelMuted }
+                        ThemedTextField {
+                            Layout.preferredWidth: 105
+                            text: root.subtitleColor
+                            placeholderText: "#ffffff"
+                            onEditingFinished: root.subtitleColor = text.trim()
+                        }
+                        ThemedCheckBox {
+                            text: qsTr("Contorno")
+                            checked: root.subtitleOutlineEnabled
+                            onCheckedChanged: root.subtitleOutlineEnabled = checked
+                        }
+                        Text { visible: root.subtitleOutlineEnabled; text: qsTr("Cor:"); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelMuted }
+                        ThemedTextField {
+                            visible: root.subtitleOutlineEnabled
+                            Layout.preferredWidth: 105
+                            text: root.subtitleOutlineColor
+                            placeholderText: "#000000"
+                            onEditingFinished: root.subtitleOutlineColor = text.trim()
+                        }
+                        Text { visible: root.subtitleOutlineEnabled; text: qsTr("Espessura:"); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelMuted }
+                        ThemedSlider {
+                            visible: root.subtitleOutlineEnabled
+                            Layout.preferredWidth: 120
+                            from: 0
+                            to: 10
+                            stepSize: 0.5
+                            value: root.subtitleOutlineWidth
+                            onValueChanged: root.subtitleOutlineWidth = Math.round(value * 2) / 2
+                        }
+                        Text { visible: root.subtitleOutlineEnabled; text: root.subtitleOutlineWidth.toFixed(1) + " px"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelForeground }
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: root.subtitlesVisible
+                        spacing: Theme.spacingLg
+
+                        ThemedCheckBox {
+                            text: qsTr("Sombra")
+                            checked: root.subtitleShadowEnabled
+                            onCheckedChanged: root.subtitleShadowEnabled = checked
+                        }
+                        ThemedCheckBox {
+                            text: qsTr("Fundo atrás da legenda")
+                            checked: root.subtitleBoxEnabled
+                            onCheckedChanged: root.subtitleBoxEnabled = checked
+                        }
+                        Text { visible: root.subtitleBoxEnabled; text: qsTr("Cor do fundo:"); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelMuted }
+                        ThemedTextField {
+                            visible: root.subtitleBoxEnabled
+                            Layout.preferredWidth: 115
+                            text: root.subtitleBoxColor
+                            placeholderText: "#80000000"
+                            onEditingFinished: root.subtitleBoxColor = text.trim()
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: root.subtitlesVisible
+                        spacing: Theme.spacingMd
+
+                        Text { text: qsTr("Entrada:"); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelMuted }
+                        ThemedComboBox {
+                            Layout.preferredWidth: 175
+                            model: transitionsTabItem.subtitleAnimationLabels
+                            currentIndex: Math.max(0, transitionsTabItem.subtitleAnimationIds.indexOf(root.subtitleAnimIn))
+                            onActivated: (idx) => root.subtitleAnimIn = transitionsTabItem.subtitleAnimationIds[idx]
+                        }
+                        Text { text: qsTr("Saída:"); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelMuted }
+                        ThemedComboBox {
+                            Layout.preferredWidth: 175
+                            model: transitionsTabItem.subtitleAnimationLabels
+                            currentIndex: Math.max(0, transitionsTabItem.subtitleAnimationIds.indexOf(root.subtitleAnimOut))
+                            onActivated: (idx) => root.subtitleAnimOut = transitionsTabItem.subtitleAnimationIds[idx]
+                        }
+                        Text { text: qsTr("Duração:"); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelMuted }
+                        ThemedSlider {
+                            Layout.preferredWidth: 130
+                            from: 0.1
+                            to: 1.5
+                            stepSize: 0.05
+                            value: root.subtitleAnimDurationSeconds
+                            onValueChanged: root.subtitleAnimDurationSeconds = Math.round(value * 20) / 20
+                        }
+                        Text { text: root.subtitleAnimDurationSeconds.toFixed(2) + "s"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSm; color: Theme.panelForeground }
+                        Item { Layout.fillWidth: true }
+                    }
+
                     Item { Layout.fillHeight: true }
                 }
             }
@@ -2092,15 +2447,16 @@ Window {
                 visible: root.activeTab === "review"
                 onVisibleChanged: {
                     if (visible) {
-                        runValidation()
+                        root.runValidation()
+                        updateFlowState()
                     }
                 }
 
-                property var planSummary: ({})
                 property bool flowIsPlaying: false
                 property double flowPlayheadSeconds: 0.0
                 property var currentSceneAction: null
                 property string currentCueText: ""
+                property string flowScenePath: ""
 
                 function formatTimecode(secs) {
                     if (!secs || isNaN(secs) || secs < 0) secs = 0
@@ -2133,6 +2489,17 @@ Window {
                     }
                 }
 
+                MediaPlayer {
+                    id: flowScenePlayer
+                    videoOutput: flowVideoOutput
+                    audioOutput: AudioOutput { muted: true }
+                    onMediaStatusChanged: {
+                        if (mediaStatus === MediaPlayer.LoadedMedia
+                                || mediaStatus === MediaPlayer.BufferedMedia)
+                            reviewTabItem.syncFlowVideoPosition()
+                    }
+                }
+
                 Timer {
                     id: flowTimer
                     interval: 33
@@ -2150,7 +2517,7 @@ Window {
                 }
 
                 function updateFlowState() {
-                    const actions = planSummary.sceneActions || []
+                    const actions = root.planSummary.sceneActions || []
                     let found = null
                     for (let i = 0; i < actions.length; ++i) {
                         const a = actions[i]
@@ -2163,14 +2530,51 @@ Window {
                     if (found) {
                         currentCueText = found.cueText || ""
                         if (found.mediaPath && found.mediaPath.length > 0) {
-                            flowMonitorImage.source = toFileUrl(found.mediaPath)
+                            if (found.isVideo) {
+                                flowMonitorImage.source = ""
+                                const localPath = urlToLocalPath(found.mediaPath)
+                                if (flowScenePath !== localPath) {
+                                    flowScenePlayer.stop()
+                                    flowScenePath = localPath
+                                    flowScenePlayer.source = toFileUrl(localPath)
+                                }
+                                syncFlowVideoPosition()
+                            } else {
+                                flowScenePlayer.stop()
+                                flowScenePath = ""
+                                flowScenePlayer.source = ""
+                                flowMonitorImage.source = toFileUrl(found.mediaPath)
+                            }
                         } else {
+                            flowScenePlayer.stop()
+                            flowScenePath = ""
+                            flowScenePlayer.source = ""
                             flowMonitorImage.source = ""
                         }
                     } else {
                         currentCueText = ""
+                        flowScenePlayer.stop()
+                        flowScenePath = ""
+                        flowScenePlayer.source = ""
                         flowMonitorImage.source = ""
                     }
+                }
+
+                function syncFlowVideoPosition() {
+                    const action = currentSceneAction
+                    if (!action || !action.isVideo || !flowScenePath)
+                        return
+                    const localTimelineSeconds = Math.max(0, flowPlayheadSeconds - action.timelineStartSeconds)
+                    const sourceInSeconds = action.sourceInSeconds || 0
+                    const rate = Math.max(0.05, action.speed || 1.0)
+                    const wantedMs = Math.max(0, Math.round((sourceInSeconds + localTimelineSeconds * rate) * 1000))
+                    flowScenePlayer.playbackRate = rate
+                    if (Math.abs(flowScenePlayer.position - wantedMs) > 250)
+                        flowScenePlayer.setPosition(wantedMs)
+                    if (flowIsPlaying)
+                        flowScenePlayer.play()
+                    else
+                        flowScenePlayer.pause()
                 }
 
                 function toggleFlowPlay() {
@@ -2183,8 +2587,8 @@ Window {
 
                 function playFlow() {
                     stopAudioPreview()
-                    if (!planSummary.sceneActions || planSummary.sceneActions.length === 0) {
-                        runValidation()
+                    if (!root.planSummary.sceneActions || root.planSummary.sceneActions.length === 0) {
+                        root.runValidation()
                     }
                     flowIsPlaying = true
                     if (root.narrationPath && root.narrationPath.length > 0) {
@@ -2198,6 +2602,7 @@ Window {
                 function pauseFlow() {
                     flowIsPlaying = false
                     flowNarrPlayer.pause()
+                    flowScenePlayer.pause()
                 }
 
                 function seekFlow(targetSec) {
@@ -2205,11 +2610,6 @@ Window {
                     if (root.narrationPath && root.narrationPath.length > 0) {
                         flowNarrPlayer.setPosition(Math.round(targetSec * 1000))
                     }
-                    updateFlowState()
-                }
-
-                function runValidation() {
-                    planSummary = CustomProject.buildPlanSummary(root.fullConfig())
                     updateFlowState()
                 }
 
@@ -2227,19 +2627,24 @@ Window {
                             text: qsTr("Validar e Analisar Projeto")
                             glyph: Theme.icons.check
                             variant: "primary"
-                            onClicked: runValidation()
+                            onClicked: {
+                                root.runValidation()
+                                updateFlowState()
+                            }
                         }
 
                         Item { Layout.fillWidth: true }
 
                         Text {
                             text: CustomProject.planValid
-                                  ? qsTr("✓ Plano Válido! Duração Total: %1 (%2s)").arg(formatTimecode(CustomProject.planDurationSeconds)).arg(Math.round(CustomProject.planDurationSeconds))
-                                  : qsTr("⚠ Plano Não Validado ou com Inconsistências")
+                                  ? ((root.planSummary.warningCount || 0) > 0
+                                     ? qsTr("✓ Plano válido com %1 aviso(s) — %2").arg(root.planSummary.warningCount).arg(formatTimecode(CustomProject.planDurationSeconds))
+                                     : qsTr("✓ Plano válido! Duração total: %1 (%2s)").arg(formatTimecode(CustomProject.planDurationSeconds)).arg(Math.round(CustomProject.planDurationSeconds)))
+                                  : qsTr("✕ Plano inválido — %1 erro(s), %2 aviso(s)").arg(root.planSummary.errorCount || 0).arg(root.planSummary.warningCount || 0)
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSm
                             font.weight: Font.DemiBold
-                            color: CustomProject.planValid ? Theme.success : Theme.warning
+                            color: CustomProject.planValid ? Theme.success : Theme.destructive
                         }
                     }
 
@@ -2259,7 +2664,7 @@ Window {
                                 width: parent.width - 8
                                 spacing: 2
                                 Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Total de Cenas"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.panelMuted }
-                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(planSummary.slotsCount !== undefined ? planSummary.slotsCount : (CustomProject.totalScenesCount || 0)); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.panelForeground }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(root.planSummary.slotsCount !== undefined ? root.planSummary.slotsCount : (CustomProject.totalScenesCount || 0)); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.panelForeground }
                             }
                         }
 
@@ -2274,7 +2679,7 @@ Window {
                                 width: parent.width - 8
                                 spacing: 2
                                 Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Cenas Cortadas (Keep)"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.primary }
-                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(planSummary.cutScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.primary }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(root.planSummary.cutScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.primary }
                             }
                         }
 
@@ -2289,7 +2694,7 @@ Window {
                                 width: parent.width - 8
                                 spacing: 2
                                 Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Aceleradas / Retimed"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.panelMuted }
-                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(planSummary.retimedScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.panelForeground }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(root.planSummary.retimedScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.panelForeground }
                             }
                         }
 
@@ -2304,7 +2709,7 @@ Window {
                                 width: parent.width - 8
                                 spacing: 2
                                 Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Exatas / Ken Burns"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.success }
-                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(planSummary.exactScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.success }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(root.planSummary.exactScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.success }
                             }
                         }
 
@@ -2318,8 +2723,23 @@ Window {
                                 anchors.centerIn: parent
                                 width: parent.width - 8
                                 spacing: 2
-                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Estendidas / Gaps"); font.family: Theme.fontFamily; font.pixelSize: 10; color: (planSummary.extendedScenesCount > 0 ? Theme.warning : Theme.panelMuted) }
-                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(planSummary.extendedScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: (planSummary.extendedScenesCount > 0 ? Theme.warning : Theme.panelForeground) }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("Estendidas / Gaps"); font.family: Theme.fontFamily; font.pixelSize: 10; color: (root.planSummary.extendedScenesCount > 0 ? Theme.warning : Theme.panelMuted) }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(root.planSummary.extendedScenesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: (root.planSummary.extendedScenesCount > 0 ? Theme.warning : Theme.panelForeground) }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 48
+                            radius: Theme.radiusSm
+                            color: Theme.panelBackground
+                            border.color: Theme.panelBorder
+                            Column {
+                                anchors.centerIn: parent
+                                width: parent.width - 8
+                                spacing: 2
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("CTAs recorrentes"); font.family: Theme.fontFamily; font.pixelSize: 10; color: Theme.panelMuted }
+                                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: String(root.planSummary.ctaOccurrencesCount || 0); font.family: Theme.fontFamily; font.pixelSize: 14; font.weight: Font.Bold; color: (root.planSummary.ctaOccurrencesCount > 0 ? Theme.primary : Theme.panelForeground) }
                             }
                         }
                     }
@@ -2359,11 +2779,22 @@ Window {
                                         visible: source.toString().length > 0
                                     }
 
+                                    VideoOutput {
+                                        id: flowVideoOutput
+                                        anchors.fill: parent
+                                        fillMode: VideoOutput.PreserveAspectFit
+                                        visible: currentSceneAction !== null
+                                                 && currentSceneAction.isVideo === true
+                                                 && flowScenePath.length > 0
+                                    }
+
                                     // Placeholder when no media
                                     Column {
                                         anchors.centerIn: parent
                                         spacing: 4
-                                        visible: flowMonitorImage.source.toString().length === 0
+                                        visible: currentSceneAction === null
+                                                 || !currentSceneAction.mediaPath
+                                                 || currentSceneAction.mediaPath.length === 0
                                         IconGlyph {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             glyph: Theme.icons.play
@@ -2485,12 +2916,57 @@ Window {
                                     }
                                     Item { Layout.fillWidth: true }
                                     Text {
-                                        text: (CustomProject.validationMessages.length > 0)
-                                              ? qsTr("%1 avisos").arg(CustomProject.validationMessages.length)
-                                              : qsTr("Nenhum aviso")
+                                        text: ((root.planSummary.errorCount || 0) > 0)
+                                              ? qsTr("%1 erro(s) • %2 aviso(s)").arg(root.planSummary.errorCount).arg(root.planSummary.warningCount || 0)
+                                              : ((root.planSummary.warningCount || 0) > 0
+                                                 ? qsTr("%1 aviso(s)").arg(root.planSummary.warningCount)
+                                                 : qsTr("Nenhuma inconsistência"))
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeXs
-                                        color: CustomProject.validationMessages.length > 0 ? Theme.warning : Theme.success
+                                        color: (root.planSummary.errorCount || 0) > 0
+                                               ? Theme.destructive
+                                               : ((root.planSummary.warningCount || 0) > 0 ? Theme.warning : Theme.success)
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: Math.min(112, 30 + (root.planSummary.messages || []).length * 24)
+                                    visible: (root.planSummary.messages || []).length > 0
+                                    color: Qt.rgba(1, 0.55, 0, 0.08)
+                                    radius: Theme.radiusXs
+                                    border.color: (root.planSummary.errorCount || 0) > 0 ? Theme.destructive : Theme.warning
+
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 6
+                                        spacing: 3
+
+                                        Text {
+                                            text: qsTr("Inconsistências e avisos encontrados:")
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSizeXs
+                                            font.weight: Font.Bold
+                                            color: Theme.panelForeground
+                                        }
+
+                                        ListView {
+                                            Layout.fillWidth: true
+                                            Layout.fillHeight: true
+                                            clip: true
+                                            model: root.planSummary.messages || []
+                                            spacing: 2
+                                            delegate: Text {
+                                                width: ListView.view.width
+                                                text: (modelData.severity === "error" ? "✕ " : "⚠ ")
+                                                      + (modelData.sceneNumber > 0 ? qsTr("Cena %1: ").arg(modelData.sceneNumber) : "")
+                                                      + modelData.message
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXs
+                                                color: modelData.severity === "error" ? Theme.destructive : Theme.warning
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
                                     }
                                 }
 
@@ -2499,7 +2975,7 @@ Window {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     clip: true
-                                    model: planSummary.sceneActions || []
+                                    model: root.planSummary.sceneActions || []
                                     spacing: 3
 
                                     ScrollBar.vertical: ScrollBar {
@@ -2558,11 +3034,30 @@ Window {
                                             }
 
                                             Text {
-                                                text: modelData.timelineDurationSeconds.toFixed(1) + "s"
+                                                text: modelData.isVideo && modelData.sourceDurationSeconds > 0
+                                                      ? Number(modelData.sourceDurationSeconds).toFixed(1) + "s"
+                                                      : "--"
                                                 font.family: Theme.fontFamily
                                                 font.pixelSize: Theme.fontSizeXs
                                                 color: Theme.panelMuted
-                                                Layout.preferredWidth: 36
+                                                horizontalAlignment: Text.AlignRight
+                                                Layout.preferredWidth: 42
+                                            }
+
+                                            Text {
+                                                text: "→"
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXs
+                                                color: Theme.panelMuted
+                                            }
+
+                                            Text {
+                                                text: Number(modelData.timelineDurationSeconds).toFixed(1) + "s"
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXs
+                                                font.weight: Font.DemiBold
+                                                color: Theme.success
+                                                Layout.preferredWidth: 42
                                             }
 
                                             ThemedButton {

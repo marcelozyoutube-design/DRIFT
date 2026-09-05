@@ -1,5 +1,6 @@
 #include <QtTest>
 
+#include <QColor>
 #include <QDir>
 #include <QFileInfo>
 #include <QImage>
@@ -3575,6 +3576,12 @@ void EditorStateTest::customProjectAssemblyAndUndo()
     plan.narrationDelayUs = 0;
     plan.narrationGain = 1.0;
     plan.hasVisibleSubtitles = true;
+    plan.subtitleStyle.fontFamily = QStringLiteral("Montserrat");
+    plan.subtitleStyle.pixelSize = 72;
+    plan.subtitleStyle.color = QColor(QStringLiteral("#ffe066"));
+    plan.subtitleStyle.outlineEnabled = true;
+    plan.subtitleStyle.outlineWidth = 4.0;
+    plan.subtitleStyle.animIn.kind = drift::TextAnimKind::Pop;
     plan.musicTrackCount = 1;
 
     // 1. Scene Slots (scenes track)
@@ -3616,7 +3623,7 @@ void EditorStateTest::customProjectAssemblyAndUndo()
 
     // 2. CTA Occurrence
     drift::PlannedCtaOccurrence cta;
-    cta.visualPath = QStringLiteral("/cta/cta.mov");
+    cta.visualPath = QStringLiteral("/cta/cta.gif");
     cta.visualStartUs = drift::secondsToUs(2.0);
     cta.visualDurationUs = drift::secondsToUs(3.0);
     cta.opacity = 0.85;
@@ -3677,6 +3684,11 @@ void EditorStateTest::customProjectAssemblyAndUndo()
     QCOMPARE(proj->tracks().at(3).type, drift::TrackType::Subtitle);
     QCOMPARE(proj->tracks().at(3).clips.size(), 1);
     QCOMPARE(proj->tracks().at(3).clips.at(0).subtitleCues.size(), 1);
+    QCOMPARE(proj->tracks().at(3).clips.at(0).textStyle.fontFamily, QStringLiteral("Montserrat"));
+    QCOMPARE(proj->tracks().at(3).clips.at(0).textStyle.pixelSize, 72);
+    QCOMPARE(proj->tracks().at(3).clips.at(0).textStyle.color, QColor(QStringLiteral("#ffe066")));
+    QVERIFY(proj->tracks().at(3).clips.at(0).textStyle.outlineEnabled);
+    QCOMPARE(proj->tracks().at(3).clips.at(0).textStyle.animIn.kind, drift::TextAnimKind::Pop);
 
     // Check Track 4 (Scenes)
     QCOMPARE(proj->tracks().at(4).type, drift::TrackType::Video);
