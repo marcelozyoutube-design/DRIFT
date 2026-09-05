@@ -3713,12 +3713,12 @@ void EditorStateTest::customProjectAssemblyAndUndo()
     QCOMPARE(proj->tracks().at(6).clips.size(), 2);
 
     // Test SINGLE-STEP ATOMIC UNDO:
-    QVERIFY(state.canUndo());
+    QVERIFY(state.undoAvailable());
     state.undo();
     QCOMPARE(state.project()->tracks().size(), initialTrackCount);
 
     // Test REDO:
-    QVERIFY(state.canRedo());
+    QVERIFY(state.redoAvailable());
     state.redo();
     QCOMPARE(state.project()->tracks().size(), 8);
     QCOMPARE(state.project()->tracks().at(4).clips.size(), 2);
