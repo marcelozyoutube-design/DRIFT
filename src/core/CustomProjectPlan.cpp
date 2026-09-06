@@ -570,10 +570,12 @@ CustomProjectPlan planCustomProject(const CustomProjectConfig &config)
                 plan.exactScenesCount++;
             } else if (srcUs < targetUs) {
                 // S < T: slow down
-                slot.speed = requiredSpeed;
+                // Respect the configured lower bound. If even the minimum speed cannot fill the
+                // whole slot, the assembly keeps the slot duration and extends the final frame.
+                slot.speed = std::max(requiredSpeed, config.minSpeed);
                 slot.srcIn = 0;
                 slot.srcOut = srcUs;
-                if (slot.speed < config.minSpeed) {
+                if (requiredSpeed < config.minSpeed) {
                     slot.actionDescription = QStringLiteral("Estendido / Desacelerado (%1x)").arg(slot.speed, 0, 'f', 2);
                     plan.extendedScenesCount++;
                 } else {

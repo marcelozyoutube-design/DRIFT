@@ -6859,6 +6859,37 @@ En cas de saccades à la lecture, essayez un autre mode.</translation>
     </message>
 </context>
 <context>
+    <name>QObject</name>
+    <message>
+        <source>Measuring loudness…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Identifying objects in scene %1 of %2…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nothing to scan in this clip</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not open the media file</source>
+        <translation type="unfinished">Impossible d’ouvrir le fichier multimédia</translation>
+    </message>
+    <message>
+        <source>This file has no video to scan</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not decode frame %1</source>
+        <translation type="unfinished">Impossible de décoder le cadre %1</translation>
+    </message>
+    <message>
+        <source>Scanning frame %1 of %2…</source>
+        <translation type="unfinished">Analyse du cadre %1 sur %2…</translation>
+    </message>
+</context>
+<context>
     <name>RecentProjectsPopup</name>
     <message>
         <source>Remove from recents</source>

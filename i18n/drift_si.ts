@@ -6856,6 +6856,37 @@ If playback stutters, try another.</source>
     </message>
 </context>
 <context>
+    <name>QObject</name>
+    <message>
+        <source>Measuring loudness…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Identifying objects in scene %1 of %2…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nothing to scan in this clip</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not open the media file</source>
+        <translation type="unfinished">මාධ්‍ය ගොනුව විවෘත කිරීමට නොහැකි විය</translation>
+    </message>
+    <message>
+        <source>This file has no video to scan</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not decode frame %1</source>
+        <translation type="unfinished">%1 රාමුව විකේතනය කිරීමට නොහැකි විය</translation>
+    </message>
+    <message>
+        <source>Scanning frame %1 of %2…</source>
+        <translation type="unfinished">%1/%2 රාමුව ස්කෑන් කරමින්…</translation>
+    </message>
+</context>
+<context>
     <name>RecentProjectsPopup</name>
     <message>
         <source>Remove from recents</source>
