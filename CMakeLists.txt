@@ -8,6 +8,25 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Oldest macOS release Drift 
 # and its CMake refuses to configure without it.
 project(Drift VERSION 0.5.1 LANGUAGES CXX C)
 
+# Keep the exact source revision visible in packaged builds. The installer filename already
+# carries this value in CI, but exposing it to the application prevents an old shortcut or a
+# stale copied installer from being mistaken for the build currently under test.
+find_package(Git QUIET)
+set(DRIFT_BUILD_REVISION "unknown")
+if(Git_FOUND)
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" rev-parse --short=7 HEAD
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        RESULT_VARIABLE _drift_git_result
+        OUTPUT_VARIABLE _drift_git_revision
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(_drift_git_result EQUAL 0 AND _drift_git_revision MATCHES "^[0-9a-fA-F]+$")
+        set(DRIFT_BUILD_REVISION "${_drift_git_revision}")
+    endif()
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -973,6 +992,7 @@ target_compile_definitions(drift PRIVATE
     DRIFT_ADDON_CLIENT_TOKEN="${DRIFT_ADDON_CLIENT_TOKEN}"
     DRIFT_UPDATE_FEED_URL="${DRIFT_UPDATE_FEED_URL}"
     DRIFT_VERSION="${PROJECT_VERSION}"
+    DRIFT_BUILD_REVISION="${DRIFT_BUILD_REVISION}"
 )
 
 # Ship a file-based package directory next to the binaries that load the catalog.

@@ -7,6 +7,7 @@
 
 #include <QDateTime>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
@@ -239,22 +240,37 @@ void CustomProjectController::scanFolders(const QString &primaryFolder, const QS
     m_primaryFound.clear();
     m_secondaryFound.clear();
 
-    const auto scanDir = [this](const QString &dirPath, QMap<int, QStringList> &outMap) {
+    int supportedFiles = 0;
+    int ignoredUnnumbered = 0;
+    int invalidFolders = 0;
+
+    const auto scanDir = [this, &supportedFiles, &ignoredUnnumbered, &invalidFolders](
+                             const QString &dirPath, QMap<int, QStringList> &outMap) {
         const QString cleaned = cleanPath(dirPath);
         if (cleaned.isEmpty())
             return;
         const QDir dir(cleaned);
-        if (!dir.exists())
+        if (!dir.exists()) {
+            ++invalidFolders;
             return;
+        }
 
-        const QFileInfoList entries = dir.entryInfoList(QDir::Files, QDir::Name);
-        for (const QFileInfo &fi : entries) {
+        // Media folders frequently contain one directory per chapter or source batch. Scan the
+        // full tree so selecting the parent folder behaves as users naturally expect.
+        QDirIterator entries(cleaned, QDir::Files | QDir::Readable | QDir::NoDotAndDotDot,
+                             QDirIterator::Subdirectories);
+        while (entries.hasNext()) {
+            entries.next();
+            const QFileInfo fi = entries.fileInfo();
             const QString path = fi.absoluteFilePath();
             if (!drift::isSupportedMediaFile(path))
                 continue;
+            ++supportedFiles;
             const int sceneNum = drift::extractSceneNumber(fi.fileName());
             if (sceneNum > 0) {
                 outMap[sceneNum].append(path);
+            } else {
+                ++ignoredUnnumbered;
             }
         }
     };
@@ -262,11 +278,18 @@ void CustomProjectController::scanFolders(const QString &primaryFolder, const QS
     scanDir(m_primaryFolder, m_primaryFound);
     scanDir(m_secondaryFolder, m_secondaryFound);
 
+    // QDirIterator does not promise ordering. Keep conflict resolution reproducible across runs.
+    for (auto it = m_primaryFound.begin(); it != m_primaryFound.end(); ++it)
+        it.value().sort(Qt::CaseInsensitive);
+    for (auto it = m_secondaryFound.begin(); it != m_secondaryFound.end(); ++it)
+        it.value().sort(Qt::CaseInsensitive);
+
     rebuildCandidates();
 
     m_isScanning = false;
     emit isScanningChanged();
     emit scanFinished(filledScenesCount(), conflictScenesCount());
+    emit scanReportReady(filledScenesCount(), supportedFiles, ignoredUnnumbered, invalidFolders);
 }
 
 void CustomProjectController::setSceneOverride(int sceneNumber, const QString &customPath)

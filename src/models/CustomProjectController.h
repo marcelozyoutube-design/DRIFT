@@ -115,6 +115,8 @@ signals:
     void cuesChanged();
     void isScanningChanged();
     void scanFinished(int totalFound, int conflicts);
+    void scanReportReady(int totalFound, int supportedFiles, int ignoredUnnumbered,
+                         int invalidFolders);
     void isTranscribingChanged();
     void transcriptionProgressChanged();
     void transcriptionStatusChanged();

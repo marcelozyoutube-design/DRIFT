@@ -234,6 +234,8 @@ int main(int argc, char *argv[])
     drift::applyVaapiZeroCopyXcbEgl();
 
     QApplication app(argc, argv);
+    QCoreApplication::setApplicationVersion(
+        QStringLiteral(DRIFT_VERSION "+" DRIFT_BUILD_REVISION));
     if (!QImageReader::supportedImageFormats().contains("svg")) {
         qWarning("SVG icons will not display: Qt's SVG image plugin is missing or built "
                  "for a different Qt version than this binary. Install a matching qt6-svg "

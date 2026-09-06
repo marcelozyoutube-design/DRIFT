@@ -13,7 +13,7 @@ Window {
     height: 820
     minimumWidth: 960
     minimumHeight: 640
-    title: qsTr("Projeto Personalizado - Drift")
+    title: qsTr("Projeto Personalizado - Drift") + " • " + Qt.application.version
     color: Theme.appBackground
     onClosing: stopAudioPreview()
 
@@ -208,6 +208,42 @@ Window {
         return root.planSummary
     }
 
+    function startFolderScan() {
+        if ((!root.primaryFolder || root.primaryFolder.length === 0)
+                && (!root.secondaryFolder || root.secondaryFolder.length === 0)) {
+            scanFeedbackText.text = qsTr("Selecione ao menos uma pasta antes de escanear.")
+            return
+        }
+        scanFeedbackText.text = qsTr("Escaneando pastas e subpastas...")
+        // Let the status paint before media probing starts on a large folder.
+        Qt.callLater(function() {
+            CustomProject.scanFolders(root.primaryFolder, root.secondaryFolder)
+        })
+    }
+
+    function processScenesFromSrt() {
+        if (!root.srtPath || root.srtPath.length === 0) {
+            scanFeedbackText.text = qsTr("Carregue um arquivo SRT antes de processar as cenas.")
+            return
+        }
+        scanFeedbackText.text = qsTr("Lendo o SRT e calculando cortes e velocidades...")
+        Qt.callLater(function() {
+            if (!CustomProject.loadSrtFile(root.srtPath)) {
+                scanFeedbackText.text = qsTr("Não foi possível ler o SRT selecionado.")
+                return
+            }
+            if ((root.primaryFolder && root.primaryFolder.length > 0)
+                    || (root.secondaryFolder && root.secondaryFolder.length > 0))
+                CustomProject.scanFolders(root.primaryFolder, root.secondaryFolder)
+            CustomProject.resolveAllConflicts()
+            const summary = root.runValidation()
+            scanFeedbackText.text = summary.isValid
+                ? qsTr("Processado: cortes e velocidades calculados para %1 cena(s).").arg(summary.slotsCount || 0)
+                : qsTr("Processado com %1 erro(s) e %2 aviso(s). Veja os detalhes na Revisão.")
+                    .arg(summary.errorCount || 0).arg(summary.warningCount || 0)
+        })
+    }
+
     function syncToProfile() {
         return {
             videoTrimStrategy: root.videoTrimStrategy,
@@ -386,6 +422,12 @@ Window {
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeXs
                             color: Theme.panelMuted
+                        }
+                        Text {
+                            text: qsTr("Build %1").arg(Qt.application.version)
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.primary
                         }
                     }
 
@@ -616,7 +658,7 @@ Window {
                                         const url = FileDialogs.openDirectory(qsTr("Pasta Primária"))
                                         if (url && url.toString().length > 0) {
                                             root.primaryFolder = urlToLocalPath(url)
-                                            CustomProject.scanFolders(root.primaryFolder, root.secondaryFolder)
+                                            root.startFolderScan()
                                         }
                                     }
                                 }
@@ -645,7 +687,7 @@ Window {
                                         const url = FileDialogs.openDirectory(qsTr("Pasta Secundária"))
                                         if (url && url.toString().length > 0) {
                                             root.secondaryFolder = urlToLocalPath(url)
-                                            CustomProject.scanFolders(root.primaryFolder, root.secondaryFolder)
+                                            root.startFolderScan()
                                         }
                                     }
                                 }
@@ -653,11 +695,13 @@ Window {
                         }
 
                         ThemedButton {
-                            text: qsTr("Escanear Pastas")
+                            text: CustomProject.isScanning ? qsTr("Escaneando...") : qsTr("Escanear Pastas")
                             variant: "primary"
                             glyph: Theme.icons.refresh
                             Layout.alignment: Qt.AlignBottom
-                            onClicked: CustomProject.scanFolders(root.primaryFolder, root.secondaryFolder)
+                            enabled: !CustomProject.isScanning
+                            tooltip: qsTr("Procura mídias numeradas também dentro das subpastas")
+                            onClicked: root.startFolderScan()
                         }
 
                         ThemedButton {
@@ -665,16 +709,7 @@ Window {
                             variant: "secondary"
                             glyph: Theme.icons.wand
                             Layout.alignment: Qt.AlignBottom
-                            onClicked: {
-                                CustomProject.resolveAllConflicts()
-                                if (root.srtPath && root.srtPath.length > 0) {
-                                    CustomProject.loadSrtFile(root.srtPath)
-                                }
-                                const summary = root.runValidation()
-                                scanFeedbackText.text = summary.isValid
-                                    ? qsTr("Processado: tempos anteriores e ajustados calculados com sucesso.")
-                                    : qsTr("Processado com inconsistências. Consulte os detalhes na Revisão.")
-                            }
+                            onClicked: root.processScenesFromSrt()
                         }
                     }
 
@@ -767,6 +802,18 @@ Window {
                         target: CustomProject
                         function onScanFinished(totalFound, conflicts) {
                             scanFeedbackText.text = qsTr("Varredura concluída: %1 cenas mapeadas (%2 conflitos)").arg(totalFound).arg(conflicts)
+                        }
+                        function onScanReportReady(totalFound, supportedFiles, ignoredUnnumbered, invalidFolders) {
+                            if (invalidFolders > 0 && supportedFiles === 0) {
+                                scanFeedbackText.text = qsTr("A pasta selecionada não existe ou não pode ser lida.")
+                            } else if (supportedFiles === 0) {
+                                scanFeedbackText.text = qsTr("Nenhuma mídia compatível foi encontrada nas pastas selecionadas.")
+                            } else if (totalFound === 0) {
+                                scanFeedbackText.text = qsTr("%1 mídia(s) encontrada(s), mas nenhuma possui número de cena no nome.").arg(supportedFiles)
+                            } else {
+                                scanFeedbackText.text = qsTr("Varredura concluída: %1 cena(s) mapeada(s) em %2 mídia(s); %3 sem numeração.")
+                                    .arg(totalFound).arg(supportedFiles).arg(ignoredUnnumbered)
+                            }
                         }
                     }
 

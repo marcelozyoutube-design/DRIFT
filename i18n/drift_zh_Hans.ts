@@ -3658,11 +3658,43 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Selecione ao menos uma pasta antes de escanear.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Escaneando pastas e subpastas...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Carregue um arquivo SRT antes de processar as cenas.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Lendo o SRT e calculando cortes e velocidades...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Não foi possível ler o SRT selecionado.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Processado: cortes e velocidades calculados para %1 cena(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Processado com %1 erro(s) e %2 aviso(s). Veja os detalhes na Revisão.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Projeto Personalizado</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Montagem de vídeo orientada a SRT no Drift</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Build %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3762,15 +3794,15 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Escaneando...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Procura mídias numeradas também dentro das subpastas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Processar e Ajustar ao SRT</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Processado: tempos anteriores e ajustados calculados com sucesso.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Processado com inconsistências. Consulte os detalhes na Revisão.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3811,6 +3843,22 @@
     </message>
     <message>
         <source>Varredura concluída: %1 cenas mapeadas (%2 conflitos)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A pasta selecionada não existe ou não pode ser lida.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nenhuma mídia compatível foi encontrada nas pastas selecionadas.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 mídia(s) encontrada(s), mas nenhuma possui número de cena no nome.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Varredura concluída: %1 cena(s) mapeada(s) em %2 mídia(s); %3 sem numeração.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
