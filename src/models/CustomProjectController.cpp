@@ -780,6 +780,8 @@ drift::CustomProjectConfig CustomProjectController::buildInternalConfig() const
     // B-Roll
     cfg.broll.enabled = m_currentProfile.value(QStringLiteral("brollEnabled"), false).toBool();
     cfg.broll.count = m_currentProfile.value(QStringLiteral("brollCount"), 3).toInt();
+    cfg.broll.mode = drift::brollSelectionModeFromString(
+        m_currentProfile.value(QStringLiteral("brollMode"), QStringLiteral("distributed")).toString());
     cfg.broll.darkenIntensity = m_currentProfile.value(QStringLiteral("brollDarkenIntensity"), 0.55).toDouble();
     cfg.broll.keyboardAudioPath = cleanPath(m_currentProfile.value(QStringLiteral("brollKeyboardAudioPath")).toString());
     cfg.broll.keyboardVolumeDb = m_currentProfile.value(QStringLiteral("brollKeyboardVolumeDb"), -10.0).toDouble();
@@ -956,6 +958,28 @@ QVariantMap CustomProjectController::buildPlanSummary(const QVariantMap &overrid
         sceneActions.append(sm);
     }
     summary.insert(QStringLiteral("sceneActions"), sceneActions);
+
+    QVariantList brollActions;
+    for (const auto &broll : m_lastPlan.brolls) {
+        QVariantMap bm;
+        bm.insert(QStringLiteral("sceneNumber"), broll.sceneNumber);
+        bm.insert(QStringLiteral("timelineStartSeconds"), drift::usToSeconds(broll.timelineStartUs));
+        bm.insert(QStringLiteral("timelineDurationSeconds"), drift::usToSeconds(broll.timelineDurationUs));
+        bm.insert(QStringLiteral("typeDurationSeconds"), drift::usToSeconds(broll.typeDurationUs));
+        bm.insert(QStringLiteral("text"), broll.text);
+        bm.insert(QStringLiteral("darkenOpacity"), broll.darkenOpacity);
+        for (const auto &slot : m_lastPlan.sceneSlots) {
+            if (slot.sceneNumber != broll.sceneNumber)
+                continue;
+            bm.insert(QStringLiteral("mediaPath"), slot.media.path);
+            bm.insert(QStringLiteral("isVideo"), slot.media.isVideo);
+            bm.insert(QStringLiteral("sourceInSeconds"), drift::usToSeconds(slot.srcIn));
+            bm.insert(QStringLiteral("speed"), slot.speed);
+            break;
+        }
+        brollActions.append(bm);
+    }
+    summary.insert(QStringLiteral("brollActions"), brollActions);
 
     return summary;
 }

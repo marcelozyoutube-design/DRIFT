@@ -3671,6 +3671,34 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Execute as etapas 1–6 para preparar a revisão.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Executando etapas 1–6: SRT, mídias, áudio, CTA, B-Rolls e legendas...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Etapa 1 pendente: selecione um arquivo SRT.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Falha na etapa 1: não foi possível ler o SRT.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Etapa 1 pendente: selecione ao menos uma pasta de mídias.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Etapas 1–6 executadas. Projeto pronto para validar e visualizar.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Etapas 1–6 executadas com %1 erro(s) e %2 aviso(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Selecione ao menos uma pasta antes de escanear.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4015,6 +4043,18 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Adicione músicas antes de distribuir.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 música(s) distribuída(s) pelas cenas 1–%2.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Volume de %1 dB aplicado às %2 músicas.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Narração Principal:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4060,6 +4100,10 @@
     </message>
     <message>
         <source>Arquivos de Áudio (*.mp3 *.wav *.aac *.ogg *.flac *.m4a)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 música(s) adicionada(s).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4187,6 +4231,14 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Reproduzindo %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pronto para visualizar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Ativar B-Rolls Textuais (Efeito Máquina de Escrever + Escurecimento da Cena)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4216,6 +4268,42 @@
     </message>
     <message>
         <source>Volume do som de digitação:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cena #%1 • %2s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Execute ou atualize a prévia para ver as cenas que receberão B-Roll textual.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pré-visualização das cenas com B-Roll</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cena %1 de %2 • duração %3s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nenhuma inserção planejada ainda.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cena B-Roll anterior</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Visualizar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Próxima cena B-Roll</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Atualizar Cenas Planejadas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4371,6 +4459,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Fontes populares para legendas de filmes e YouTube instaladas neste computador</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Tamanho:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4419,7 +4511,43 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Execute as etapas 1–6 antes de validar, visualizar e montar.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A narração não pôde ser reproduzida; a prévia visual continuará sem áudio: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Execute as etapas 1–6 para criar a prévia antes de reproduzir.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reproduzindo a prévia do projeto...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Executando Etapas 1–6...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Executar Etapas 1–6</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Validar e Analisar Projeto</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Projeto validado e pronto para visualização.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Validação concluída: consulte as inconsistências abaixo.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Aguardando execução das etapas 1–6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4469,6 +4597,14 @@
     <message>
         <source>Play</source>
         <translation type="unfinished">Reproduzir</translation>
+    </message>
+    <message>
+        <source>Pausar prévia</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reproduzir prévia das cenas</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Detalhamento de Cenas e Ações:</source>
@@ -4531,7 +4667,31 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>MONTANDO PROJETO NA TIMELINE...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>MONTAR PROJETO PERSONALIZADO NA TIMELINE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Montando o projeto personalizado na timeline...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Não foi possível iniciar a montagem. Verifique as inconsistências acima.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>FECHAR E VER O PROJETO NA TIMELINE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Projeto montado com sucesso. Feche esta janela para revisar a timeline.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Falha ao montar o projeto: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
