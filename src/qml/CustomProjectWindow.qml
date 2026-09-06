@@ -107,6 +107,7 @@ Window {
     property var musicList: []
     property real uniformMusicVolumeDb: -12.0
     property string audioActionFeedback: ""
+    property int musicRevision: 0
 
     // Latest validation result is shared by Scenes and Review. Keeping it at the window scope
     // also lets "Process and fit" refresh both tabs instead of trying to call a nested function.
@@ -235,9 +236,24 @@ Window {
     }
 
     function runValidation() {
+        root.syncControllerState()
         const result = CustomProject.buildPlanSummary(root.fullConfig())
         root.planSummary = result || ({})
         return root.planSummary
+    }
+
+    function firstValidationIssue(summary) {
+        const messages = summary && summary.messages ? summary.messages : []
+        if (messages.length === 0)
+            return qsTr("O plano foi marcado como inválido, mas não retornou detalhes.")
+        const issue = messages[0]
+        const scenePrefix = issue.sceneNumber > 0 ? qsTr("Cena %1: ").arg(issue.sceneNumber) : ""
+        return scenePrefix + (issue.message || qsTr("inconsistência sem descrição"))
+    }
+
+    function syncControllerState() {
+        CustomProject.currentProject = root.syncToProject()
+        CustomProject.currentProfile = root.syncToProfile()
     }
 
     function executeStepsOneToSix() {
@@ -1312,10 +1328,14 @@ Window {
                         return
                     }
                     const oldY = musicListView.contentY
-                    var total = CustomProject.totalScenesCount
+                    var total = (root.planSummary.sceneActions || []).length
+                    if (total <= 0)
+                        total = CustomProject.totalScenesCount
+                    if (total <= 0 && CustomProject.candidateScenes)
+                        total = CustomProject.candidateScenes.length
                     if (total <= 0) {
-                        total = (CustomProject.candidateScenes && CustomProject.candidateScenes.length > 0)
-                            ? CustomProject.candidateScenes.length : 100
+                        root.audioActionFeedback = qsTr("Escaneie as cenas antes de distribuir as músicas.")
+                        return
                     }
                     var count = root.musicList.length
                     var list = []
@@ -1328,8 +1348,10 @@ Window {
                         list.push(updated)
                     }
                     root.musicList = list
+                    root.musicRevision++
                     root.audioActionFeedback = qsTr("%1 música(s) distribuída(s) pelas cenas 1–%2.")
                         .arg(count).arg(total)
+                    root.syncControllerState()
                     restoreMusicScroll(oldY)
                 }
 
@@ -1358,6 +1380,8 @@ Window {
                     updated[field] = newValue
                     list[entryIndex] = updated
                     root.musicList = list
+                    root.musicRevision++
+                    root.syncControllerState()
                     restoreMusicScroll(oldY)
                 }
 
@@ -1373,8 +1397,10 @@ Window {
                         list.push(updated)
                     }
                     root.musicList = list
+                    root.musicRevision++
                     root.audioActionFeedback = qsTr("Volume de %1 dB aplicado às %2 músicas.")
                         .arg(rounded.toFixed(1)).arg(list.length)
+                    root.syncControllerState()
                     restoreMusicScroll(oldY)
                 }
 
@@ -1482,7 +1508,7 @@ Window {
                         Item { Layout.fillWidth: true }
                         ThemedButton {
                             text: qsTr("Distribuir entre as Cenas")
-                            glyph: Theme.icons.columns
+                            glyph: Theme.icons.shuffle
                             variant: "secondary"
                             enabled: root.musicList.length > 0
                             onClicked: distributeMusicAcrossScenes()
@@ -1517,8 +1543,10 @@ Window {
                                         })
                                     }
                                     root.musicList = list
+                                    root.musicRevision++
                                     root.audioActionFeedback = qsTr("%1 música(s) adicionada(s).")
                                         .arg(urls.length)
+                                    root.syncControllerState()
                                 }
                             }
                         }
@@ -1560,7 +1588,7 @@ Window {
                             visible: text.length > 0
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeXs
-                            color: root.readableMuted
+                            color: root.audioActionFeedback.length > 0 ? Theme.constructive : root.readableMuted
                         }
                         Item { Layout.fillWidth: true }
                     }
@@ -1624,7 +1652,7 @@ Window {
                                         from: -40.0
                                         to: 15.0
                                         value: (modelData.volumeDb !== undefined) ? modelData.volumeDb : -12.0
-                                        onValueChanged: {
+                                        onMoved: {
                                             const rounded = Math.round(value * 10) / 10
                                             if (modelData.volumeDb !== rounded)
                                                 updateMusicEntry(index, "volumeDb", rounded)
@@ -1640,18 +1668,12 @@ Window {
                                     ThemedCheckBox {
                                         text: qsTr("Boost")
                                         checked: modelData.silenceBoost !== undefined ? modelData.silenceBoost : true
-                                        onCheckedChanged: {
-                                            if (modelData.silenceBoost !== checked)
-                                                updateMusicEntry(index, "silenceBoost", checked)
-                                        }
+                                        onClicked: updateMusicEntry(index, "silenceBoost", checked)
                                     }
                                     ThemedCheckBox {
                                         text: qsTr("Loop")
                                         checked: modelData.loop !== undefined ? modelData.loop : false
-                                        onCheckedChanged: {
-                                            if (modelData.loop !== checked)
-                                                updateMusicEntry(index, "loop", checked)
-                                        }
+                                        onClicked: updateMusicEntry(index, "loop", checked)
                                     }
                                     ThemedButton {
                                         text: playingAudioSource === urlToLocalPath(modelData.path) && previewAudioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Parar") : qsTr("Ouvir")
@@ -1670,6 +1692,8 @@ Window {
                                             const list = root.musicList.slice()
                                             list.splice(index, 1)
                                             root.musicList = list
+                                            root.musicRevision++
+                                            root.syncControllerState()
                                             restoreMusicScroll(oldY)
                                         }
                                     }
@@ -2116,11 +2140,16 @@ Window {
 
                                         ThemedButton {
                                             Layout.preferredWidth: 300
-                                            text: ctaIsPlayingPreview ? qsTr("Parar Visualização") : qsTr("Testar Preview CTA (Visual + Sino)")
-                                            variant: ctaIsPlayingPreview ? "destructive" : "primary"
-                                            glyph: ctaIsPlayingPreview ? Theme.icons.pause : Theme.icons.play
+                                            text: qsTr("Abrir Preview Grande do CTA")
+                                            variant: "primary"
+                                            glyph: Theme.icons.play
                                             enabled: root.ctaVisualPath.length > 0 || root.ctaBellAudioPath.length > 0
-                                            onClicked: toggleCtaPreview()
+                                            onClicked: {
+                                                ctaIsPlayingPreview = false
+                                                ctaPreviewStopTimer.stop()
+                                                ctaBellOffsetTimer.stop()
+                                                ctaAutomationPreview.open()
+                                            }
                                         }
 
                                         Text {
@@ -2367,7 +2396,9 @@ Window {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 320
+                            Layout.preferredHeight: 0
+                            Layout.maximumHeight: 0
+                            visible: false
                             color: root.readableSurface
                             radius: Theme.radiusSm
                             border.color: Theme.panelBorder
@@ -2521,7 +2552,7 @@ Window {
 
                                         ThemedButton {
                                             Layout.preferredWidth: 44
-                                            glyph: Theme.icons.chevronLeft
+                                            glyph: Theme.icons.stepBack
                                             enabled: brollTabItem.previewIndex > 0
                                             tooltip: qsTr("Cena B-Roll anterior")
                                             onClicked: {
@@ -2541,7 +2572,7 @@ Window {
                                         }
                                         ThemedButton {
                                             Layout.preferredWidth: 44
-                                            glyph: Theme.icons.chevronRight
+                                            glyph: Theme.icons.stepForward
                                             enabled: brollTabItem.previewIndex + 1 < brollTabItem.previewItems.length
                                             tooltip: qsTr("Próxima cena B-Roll")
                                             onClicked: {
@@ -2559,6 +2590,78 @@ Window {
                                         glyph: Theme.icons.refresh
                                         onClicked: brollTabItem.refreshPreview()
                                     }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 112
+                            color: root.readableSurface
+                            radius: Theme.radiusSm
+                            border.color: Theme.panelBorder
+                            border.width: 1
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: Theme.spacingMd
+                                spacing: Theme.spacingMd
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 3
+                                    Text {
+                                        text: qsTr("Preview ampliado do B-Roll textual")
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeMd
+                                        font.weight: Font.Bold
+                                        color: root.readableText
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: brollTabItem.currentPreview
+                                              ? qsTr("Cena #%1 • %2s • %3 de %4")
+                                                    .arg(brollTabItem.currentPreview.sceneNumber)
+                                                    .arg(Number(brollTabItem.currentPreview.timelineDurationSeconds || 0).toFixed(1))
+                                                    .arg(brollTabItem.previewIndex + 1)
+                                                    .arg(brollTabItem.previewItems.length)
+                                              : qsTr("Atualize o plano para escolher as cenas que receberão o efeito.")
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: root.readableMuted
+                                        elide: Text.ElideRight
+                                    }
+                                }
+
+                                ThemedButton {
+                                    Layout.preferredWidth: 44
+                                    glyph: Theme.icons.stepBack
+                                    enabled: brollTabItem.previewIndex > 0
+                                    tooltip: qsTr("B-Roll anterior")
+                                    onClicked: brollTabItem.previewIndex--
+                                }
+                                ThemedButton {
+                                    Layout.preferredWidth: 230
+                                    text: qsTr("ABRIR PREVIEW GRANDE")
+                                    glyph: Theme.icons.play
+                                    variant: "primary"
+                                    onClicked: {
+                                        brollTabItem.refreshPreview()
+                                        if (brollTabItem.currentPreview)
+                                            brollAutomationPreview.open()
+                                    }
+                                }
+                                ThemedButton {
+                                    Layout.preferredWidth: 44
+                                    glyph: Theme.icons.stepForward
+                                    enabled: brollTabItem.previewIndex + 1 < brollTabItem.previewItems.length
+                                    tooltip: qsTr("Próximo B-Roll")
+                                    onClicked: brollTabItem.previewIndex++
+                                }
+                                ThemedButton {
+                                    text: qsTr("Atualizar Plano")
+                                    glyph: Theme.icons.refresh
+                                    onClicked: brollTabItem.refreshPreview()
                                 }
                             }
                         }
@@ -2884,6 +2987,35 @@ Window {
                         Item { Layout.fillWidth: true }
                     }
 
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 72
+                        visible: root.subtitlesVisible
+                        color: root.readableSurface
+                        radius: Theme.radiusSm
+                        border.color: Theme.panelBorder
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingMd
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("Confira fonte, cor, contorno, fundo e animação antes de montar.")
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSm
+                                color: root.readableMuted
+                            }
+                            ThemedButton {
+                                Layout.preferredWidth: 250
+                                text: qsTr("ABRIR PREVIEW DA LEGENDA")
+                                glyph: Theme.icons.play
+                                variant: "primary"
+                                onClicked: subtitleAutomationPreview.open()
+                            }
+                        }
+                    }
+
                     Item { Layout.fillHeight: true }
                 }
             }
@@ -2895,11 +3027,10 @@ Window {
                 visible: root.activeTab === "review"
                 onVisibleChanged: {
                     if (visible) {
-                        if (root.preparationComplete) {
-                            root.runValidation()
-                            resetFlowPreview()
-                        } else {
-                            pauseFlow()
+                        const summary = root.runValidation()
+                        root.preparationComplete = (summary.sceneActions || []).length > 0
+                        resetFlowPreview()
+                        if (!root.preparationComplete) {
                             root.operationStatus = qsTr("Execute as etapas 1–6 antes de validar, visualizar e montar.")
                         }
                     }
@@ -2910,6 +3041,8 @@ Window {
                 property var currentSceneAction: null
                 property string currentCueText: ""
                 property string flowScenePath: ""
+                property string flowPreviewStatus: qsTr("Prévia pronta")
+                property int flowFrameTick: 0
 
                 function resetFlowPreview() {
                     pauseFlow()
@@ -2940,6 +3073,12 @@ Window {
                         }
                     }
                     onMediaStatusChanged: {
+                        if ((mediaStatus === MediaPlayer.LoadedMedia
+                                || mediaStatus === MediaPlayer.BufferedMedia)
+                                && flowIsPlaying) {
+                            setPosition(Math.round(flowPlayheadSeconds * 1000))
+                            play()
+                        }
                         if (mediaStatus === MediaPlayer.EndOfMedia) {
                             pauseFlow()
                             flowPlayheadSeconds = 0
@@ -2948,8 +3087,10 @@ Window {
                         }
                     }
                     onErrorOccurred: function(error, errorString) {
-                        if (error !== MediaPlayer.NoError)
+                        if (error !== MediaPlayer.NoError) {
                             root.operationStatus = qsTr("A narração não pôde ser reproduzida; a prévia visual continuará sem áudio: %1").arg(errorString)
+                            flowPreviewStatus = qsTr("Prévia visual sem narração")
+                        }
                     }
                 }
 
@@ -2961,6 +3102,12 @@ Window {
                         if (mediaStatus === MediaPlayer.LoadedMedia
                                 || mediaStatus === MediaPlayer.BufferedMedia)
                             reviewTabItem.syncFlowVideoPosition()
+                    }
+                    onErrorOccurred: function(error, errorString) {
+                        if (error !== MediaPlayer.NoError)
+                            flowPreviewStatus = qsTr("Cena #%1: falha no vídeo; o relógio continuará. %2")
+                                    .arg(currentSceneAction ? currentSceneAction.sceneNumber : "?")
+                                    .arg(errorString)
                     }
                 }
 
@@ -2974,10 +3121,12 @@ Window {
                             flowPlayheadSeconds = flowNarrPlayer.position / 1000.0
                         else
                             flowPlayheadSeconds += interval / 1000.0
-                        const totalSec = Math.max(1.0, CustomProject.planDurationSeconds)
+                        flowFrameTick++
+                        const totalSec = Math.max(1.0, root.planSummary.targetDurationSeconds || CustomProject.planDurationSeconds)
                         if (flowPlayheadSeconds >= totalSec) {
                             pauseFlow()
                             flowPlayheadSeconds = 0
+                            flowPreviewStatus = qsTr("Prévia concluída")
                         }
                         updateFlowState()
                     }
@@ -3038,10 +3187,12 @@ Window {
                     flowScenePlayer.playbackRate = rate
                     if (Math.abs(flowScenePlayer.position - wantedMs) > 250)
                         flowScenePlayer.setPosition(wantedMs)
-                    if (flowIsPlaying)
-                        flowScenePlayer.play()
-                    else
+                    if (flowIsPlaying) {
+                        if (flowScenePlayer.playbackState !== MediaPlayer.PlayingState)
+                            flowScenePlayer.play()
+                    } else if (flowScenePlayer.playbackState === MediaPlayer.PlayingState) {
                         flowScenePlayer.pause()
+                    }
                 }
 
                 function toggleFlowPlay() {
@@ -3055,12 +3206,20 @@ Window {
                 function playFlow() {
                     stopAudioPreview()
                     if (!root.planSummary.sceneActions || root.planSummary.sceneActions.length === 0) {
-                        root.operationStatus = qsTr("Execute as etapas 1–6 para criar a prévia antes de reproduzir.")
-                        return
+                        const summary = root.runValidation()
+                        root.preparationComplete = (summary.sceneActions || []).length > 0
+                        if (!root.preparationComplete) {
+                            root.operationStatus = qsTr("Não há cenas no plano para reproduzir. Execute novamente as etapas 1–6.")
+                            return
+                        }
                     }
+                    if (flowPlayheadSeconds >= Math.max(0.1, root.planSummary.targetDurationSeconds || 0))
+                        flowPlayheadSeconds = 0
                     flowIsPlaying = true
                     root.operationStatus = qsTr("Reproduzindo a prévia do projeto...")
+                    flowPreviewStatus = qsTr("Reproduzindo cena por cena")
                     if (root.narrationPath && root.narrationPath.length > 0) {
+                        flowNarrPlayer.stop()
                         flowNarrPlayer.source = toFileUrl(root.narrationPath)
                         flowNarrPlayer.setPosition(Math.round(flowPlayheadSeconds * 1000))
                         flowNarrPlayer.play()
@@ -3072,6 +3231,8 @@ Window {
                     flowIsPlaying = false
                     flowNarrPlayer.pause()
                     flowScenePlayer.pause()
+                    if (flowPreviewStatus.indexOf(qsTr("Falha")) < 0)
+                        flowPreviewStatus = qsTr("Prévia pausada em %1").arg(formatTimecode(flowPlayheadSeconds))
                 }
 
                 function seekFlow(targetSec) {
@@ -3104,12 +3265,16 @@ Window {
                             text: qsTr("Validar e Analisar Projeto")
                             glyph: Theme.icons.check
                             variant: "secondary"
-                            enabled: root.preparationComplete && !root.operationBusy
+                            enabled: !root.operationBusy
                             onClicked: {
                                 const summary = root.runValidation()
+                                root.preparationComplete = (summary.sceneActions || []).length > 0
                                 root.operationStatus = summary.isValid
                                         ? qsTr("Projeto validado e pronto para visualização.")
-                                        : qsTr("Validação concluída: consulte as inconsistências abaixo.")
+                                        : qsTr("Validação concluída com %1 erro(s) e %2 aviso(s). Primeiro item: %3")
+                                            .arg(summary.errorCount || 0)
+                                            .arg(summary.warningCount || 0)
+                                            .arg(root.firstValidationIssue(summary))
                                 resetFlowPreview()
                             }
                         }
@@ -3281,6 +3446,17 @@ Window {
                                                  && flowScenePath.length > 0
                                     }
 
+                                    ThemedButton {
+                                        anchors.centerIn: parent
+                                        z: 10
+                                        visible: !flowIsPlaying
+                                                 && !root.operationBusy
+                                        text: flowPlayheadSeconds > 0 ? qsTr("Continuar Prévia") : qsTr("Reproduzir Prévia")
+                                        glyph: Theme.icons.play
+                                        variant: "primary"
+                                        onClicked: playFlow()
+                                    }
+
                                     // Placeholder when no media
                                     Column {
                                         anchors.centerIn: parent
@@ -3333,7 +3509,7 @@ Window {
                                         width: Math.min(parent.width - 24, flowSubText.implicitWidth + 24)
                                         height: flowSubText.implicitHeight + 8
                                         radius: 4
-                                        color: Qt.rgba(0, 0, 0, 0.8)
+                                        color: root.subtitleBoxEnabled ? root.subtitleBoxColor : Qt.rgba(0, 0, 0, 0.72)
                                         visible: currentCueText.length > 0
 
                                         Text {
@@ -3341,10 +3517,12 @@ Window {
                                             anchors.centerIn: parent
                                             width: parent.width - 16
                                             text: currentCueText
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeSm
-                                            font.weight: Font.Bold
-                                            color: "#ffffff"
+                                            font.family: root.subtitleFontFamily
+                                            font.pixelSize: Math.max(14, Math.min(28, root.subtitlePixelSize * 0.34))
+                                            font.bold: root.subtitleBold
+                                            color: root.subtitleColor
+                                            style: root.subtitleOutlineEnabled ? Text.Outline : Text.Normal
+                                            styleColor: root.subtitleOutlineColor
                                             horizontalAlignment: Text.AlignHCenter
                                             wrapMode: Text.WordWrap
                                         }
@@ -3362,7 +3540,7 @@ Window {
                                         glyph: flowIsPlaying ? Theme.icons.pause : Theme.icons.play
                                         Layout.preferredWidth: 110
                                         Layout.minimumWidth: 100
-                                        enabled: root.preparationComplete && (root.planSummary.sceneActions || []).length > 0
+                                        enabled: !root.operationBusy
                                         tooltip: flowIsPlaying ? qsTr("Pausar prévia") : qsTr("Reproduzir prévia das cenas")
                                         onClicked: toggleFlowPlay()
                                     }
@@ -3371,19 +3549,30 @@ Window {
                                         id: flowScrubber
                                         Layout.fillWidth: true
                                         from: 0.0
-                                        to: Math.max(1.0, CustomProject.planDurationSeconds)
+                                        to: Math.max(1.0, root.planSummary.targetDurationSeconds || CustomProject.planDurationSeconds)
                                         value: flowPlayheadSeconds
                                         onMoved: seekFlow(value)
                                     }
 
                                     Text {
-                                        text: formatTimecode(flowPlayheadSeconds) + " / " + formatTimecode(Math.max(1.0, CustomProject.planDurationSeconds))
+                                        text: formatTimecode(flowPlayheadSeconds) + " / "
+                                              + formatTimecode(Math.max(1.0, root.planSummary.targetDurationSeconds || CustomProject.planDurationSeconds))
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeXs
                                         font.weight: Font.DemiBold
                                         color: root.readableText
                                         Layout.preferredWidth: 72
                                     }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: flowPreviewStatus
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeXs
+                                    color: flowPreviewStatus.indexOf(qsTr("Falha")) === 0
+                                           ? Theme.destructive : root.readableMuted
+                                    elide: Text.ElideRight
                                 }
                             }
                         }
@@ -3646,19 +3835,30 @@ Window {
                                                  : qsTr("MONTAR PROJETO PERSONALIZADO NA TIMELINE")
                         variant: "primary"
                         glyph: Theme.icons.wand
-                        enabled: root.preparationComplete
-                                 && root.planSummary.isValid === true
-                                 && !root.operationBusy
+                        enabled: !root.operationBusy
                         onClicked: {
                             pauseFlow()
                             stopAudioPreview()
+                            const summary = root.runValidation()
+                            root.preparationComplete = (summary.sceneActions || []).length > 0
+                            if (!summary.isValid) {
+                                root.assemblySucceeded = false
+                                root.operationStatus = qsTr("Montagem não iniciada: %1 erro(s), %2 aviso(s). Primeiro item: %3")
+                                    .arg(summary.errorCount || 0)
+                                    .arg(summary.warningCount || 0)
+                                    .arg(root.firstValidationIssue(summary))
+                                return
+                            }
                             root.operationBusy = true
                             root.assemblySucceeded = false
                             root.operationStatus = qsTr("Montando o projeto personalizado na timeline...")
                             const started = CustomProject.executeAssembly(AppController, root.saveProjectPath)
-                            if (started === false) {
+                            // The controller emits assemblyFinished synchronously today. Keep this
+                            // fallback for a future asynchronous implementation or missing signal.
+                            if (started === false && root.operationBusy) {
                                 root.operationBusy = false
-                                root.operationStatus = qsTr("Não foi possível iniciar a montagem. Verifique as inconsistências acima.")
+                                root.operationStatus = qsTr("Não foi possível iniciar a montagem. %1")
+                                    .arg(root.firstValidationIssue(root.planSummary))
                             }
                         }
                     }
@@ -3676,14 +3876,109 @@ Window {
         }
     }
 
+    Timer {
+        id: assemblyRevealTimer
+        interval: 900
+        repeat: false
+        onTriggered: root.close()
+    }
+
+    AutomationPreviewDialog {
+        id: ctaAutomationPreview
+        previewKind: "cta"
+        mediaUrl: toFileUrl(root.ctaVisualPath)
+        mediaIsVideo: root.isVideoPath(root.ctaVisualPath)
+        durationSeconds: root.ctaVisualDurationSeconds
+        soundPath: root.ctaBellAudioPath
+        soundVolumeDb: root.ctaBellVolumeDb
+        soundOffsetSeconds: root.ctaBellAudioOffsetSeconds
+        detailText: qsTr("Visual %1s • sino em %2s")
+                    .arg(Number(root.ctaVisualDurationSeconds).toFixed(1))
+                    .arg(Number(root.ctaBellAudioOffsetSeconds).toFixed(1))
+        onPlaySoundRequested: function(path, volumeDb) { root.playAudioPreview(path, volumeDb) }
+        onStopSoundRequested: root.stopAudioPreview()
+    }
+
+    AutomationPreviewDialog {
+        id: brollAutomationPreview
+        previewKind: "broll"
+        mediaUrl: brollTabItem.currentPreview ? toFileUrl(brollTabItem.currentPreview.mediaPath) : ""
+        mediaIsVideo: brollTabItem.currentPreview ? brollTabItem.currentPreview.isVideo === true : false
+        durationSeconds: brollTabItem.currentPreview
+                         ? Math.max(1.0, Number(brollTabItem.currentPreview.timelineDurationSeconds || 1.0)) : 5.0
+        sourceInSeconds: brollTabItem.currentPreview
+                         ? Number(brollTabItem.currentPreview.sourceInSeconds || 0.0) : 0.0
+        playbackRate: brollTabItem.currentPreview
+                      ? Number(brollTabItem.currentPreview.speed || 1.0) : 1.0
+        darkenOpacity: brollTabItem.currentPreview
+                       ? Number(brollTabItem.currentPreview.darkenOpacity || root.brollDarkenIntensity)
+                       : root.brollDarkenIntensity
+        overlayText: brollTabItem.currentPreview ? (brollTabItem.currentPreview.text || "") : ""
+        typewriter: true
+        typewriterFraction: brollTabItem.currentPreview
+                            ? Math.max(0.1, Math.min(1.0,
+                                Number(brollTabItem.currentPreview.typeDurationSeconds || 1.0)
+                                / Math.max(0.1, Number(brollTabItem.currentPreview.timelineDurationSeconds || 1.0))))
+                            : 0.72
+        textFontFamily: Theme.fontFamily
+        textPixelSize: 54
+        textBold: true
+        outlineEnabled: true
+        boxEnabled: false
+        animationKind: "typewriter"
+        soundPath: root.brollKeyboardAudioPath
+        soundVolumeDb: root.brollKeyboardVolumeDb
+        detailText: brollTabItem.currentPreview
+                    ? qsTr("Cena #%1 • início %2s")
+                        .arg(brollTabItem.currentPreview.sceneNumber)
+                        .arg(Number(brollTabItem.currentPreview.timelineStartSeconds || 0).toFixed(1))
+                    : ""
+        onPlaySoundRequested: function(path, volumeDb) { root.playAudioPreview(path, volumeDb) }
+        onStopSoundRequested: root.stopAudioPreview()
+    }
+
+    AutomationPreviewDialog {
+        id: subtitleAutomationPreview
+        previewKind: "subtitle"
+        durationSeconds: Math.max(2.5, root.subtitleAnimDurationSeconds * 5.0)
+        overlayText: CustomProject.cues.length > 0 && CustomProject.cues[0].text
+                     ? CustomProject.cues[0].text
+                     : qsTr("Sua legenda aparecerá assim no vídeo")
+        typewriter: root.subtitleAnimIn === "typewriter"
+        typewriterFraction: 0.75
+        textFontFamily: root.subtitleFontFamily
+        textPixelSize: root.subtitlePixelSize
+        textBold: root.subtitleBold
+        textColor: root.subtitleColor
+        outlineEnabled: root.subtitleOutlineEnabled
+        outlineColor: root.subtitleOutlineColor
+        outlineWidth: root.subtitleOutlineWidth
+        boxEnabled: root.subtitleBoxEnabled
+        boxColor: root.subtitleBoxColor
+        animationKind: root.subtitleAnimIn
+        animationDurationSeconds: root.subtitleAnimDurationSeconds
+        detailText: qsTr("%1 • %2 px • contorno %3 px")
+                    .arg(root.subtitleFontFamily)
+                    .arg(root.subtitlePixelSize)
+                    .arg(Number(root.subtitleOutlineWidth).toFixed(1))
+        onStopSoundRequested: root.stopAudioPreview()
+    }
+
     Connections {
         target: CustomProject
         function onAssemblyFinished(success, message) {
             root.operationBusy = false
             root.assemblySucceeded = success
-            root.operationStatus = success
-                    ? qsTr("Projeto montado com sucesso. Feche esta janela para revisar a timeline.")
-                    : qsTr("Falha ao montar o projeto: %1").arg(message)
+            if (success) {
+                root.operationStatus = qsTr("Projeto montado: %1 cenas, %2 músicas, %3 CTA(s) e %4 B-Roll(s). Abrindo a timeline...")
+                    .arg((root.planSummary.sceneActions || []).length)
+                    .arg(root.planSummary.musicClipsCount || 0)
+                    .arg(root.planSummary.ctaOccurrencesCount || 0)
+                    .arg(root.planSummary.brollsCount || 0)
+                assemblyRevealTimer.restart()
+            } else {
+                root.operationStatus = qsTr("Falha ao montar o projeto: %1").arg(message)
+            }
         }
     }
 

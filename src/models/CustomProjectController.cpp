@@ -993,7 +993,16 @@ bool CustomProjectController::executeAssembly(AppController *appController, cons
 
     buildPlanSummary();
     if (!m_planValid) {
-        emit assemblyFinished(false, tr("Plan validation failed with errors"));
+        QString detail = tr("Plan validation failed with errors");
+        for (const auto &message : m_lastPlan.messages) {
+            if (message.severity == drift::PlanValidationMessage::Severity::Error) {
+                detail = message.sceneNumber > 0
+                    ? tr("Scene %1: %2").arg(message.sceneNumber).arg(message.message)
+                    : message.message;
+                break;
+            }
+        }
+        emit assemblyFinished(false, detail);
         return false;
     }
 

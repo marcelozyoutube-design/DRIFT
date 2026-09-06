@@ -801,6 +801,7 @@ qt_add_qml_module(drift
         src/qml/components/NameDialog.qml
         src/qml/components/EmojiPicker.qml
         src/qml/components/ThemedButton.qml
+        src/qml/components/AutomationPreviewDialog.qml
         src/qml/components/ThemedChip.qml
         src/qml/components/ThemedProgressBar.qml
         src/qml/components/ThemedLabel.qml

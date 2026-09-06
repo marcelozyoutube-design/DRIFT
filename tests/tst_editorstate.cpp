@@ -3646,7 +3646,22 @@ void EditorStateTest::customProjectAssemblyAndUndo()
     broll.keyboardGain = 0.5;
     plan.brolls.append(broll);
 
-    // 4. Subtitle Cues
+    // 4. Background music. This verifies that the plan values selected in the
+    // Custom Project screen survive assembly and reach the real timeline track.
+    drift::PlannedMusicClip music;
+    music.trackIndex = 0;
+    music.path = QStringLiteral("/audio/music.mp3");
+    music.label = QStringLiteral("Background Music");
+    music.timelineStartUs = drift::secondsToUs(5.0);
+    music.timelineDurationUs = drift::secondsToUs(10.0);
+    music.srcIn = 0;
+    music.srcOut = drift::secondsToUs(10.0);
+    music.baseGain = drift::dbToLinearGain(-14.0);
+    music.fadeInUs = drift::secondsToUs(0.5);
+    music.fadeOutUs = drift::secondsToUs(0.75);
+    plan.musicClips.append(music);
+
+    // 5. Subtitle Cues
     drift::SubtitleCue cue;
     cue.startUs = drift::secondsToUs(1.0);
     cue.endUs = drift::secondsToUs(4.0);
@@ -3711,6 +3726,19 @@ void EditorStateTest::customProjectAssemblyAndUndo()
     // Check Track 6 (SFX - bell + keyboard)
     QCOMPARE(proj->tracks().at(6).type, drift::TrackType::Audio);
     QCOMPARE(proj->tracks().at(6).clips.size(), 2);
+
+    // Check Track 7 (background music with the configured gain and fades)
+    QCOMPARE(proj->tracks().at(7).type, drift::TrackType::Audio);
+    QCOMPARE(proj->tracks().at(7).clips.size(), 1);
+    const auto &musicClip = proj->tracks().at(7).clips.at(0);
+    QCOMPARE(musicClip.name, QStringLiteral("Background Music"));
+    QCOMPARE(musicClip.timelineStart, drift::secondsToUs(5.0));
+    QCOMPARE(musicClip.timelineDuration, drift::secondsToUs(10.0));
+    QCOMPARE(musicClip.fadeInUs, drift::secondsToUs(0.5));
+    QCOMPARE(musicClip.fadeOutUs, drift::secondsToUs(0.75));
+    QVERIFY(musicClip.volume.enabled());
+    QVERIFY(qAbs(musicClip.volume.keyframes().constBegin().value()
+                 - drift::dbToLinearGain(-14.0)) < 0.000001);
 
     // Test SINGLE-STEP ATOMIC UNDO:
     QVERIFY(state.undoAvailable());

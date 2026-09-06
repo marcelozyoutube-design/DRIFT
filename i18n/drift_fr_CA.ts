@@ -3512,6 +3512,73 @@
     </message>
 </context>
 <context>
+    <name>AutomationPreviewDialog</name>
+    <message>
+        <source>Pronto para reproduzir</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pré-visualização do CTA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pré-visualização do B-Roll textual</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pré-visualização da legenda</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fechar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Carregando prévia...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reproduzindo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prévia pausada</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Falha ao carregar o vídeo: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prévia concluída — use Repetir para assistir novamente</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Falha ao carregar a imagem ou GIF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nenhuma mídia selecionada para esta prévia</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pausar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reproduzir</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Repetir</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Falha</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>BinBreadcrumb</name>
     <message>
         <source>Media</source>
@@ -3658,6 +3725,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Scene %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Failed to assemble project on timeline</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3674,6 +3745,14 @@
     </message>
     <message>
         <source>Execute as etapas 1–6 para preparar a revisão.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>O plano foi marcado como inválido, mas não retornou detalhes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>inconsistência sem descrição</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4225,11 +4304,31 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Parar Visualização</source>
+        <source>Validação concluída com %1 erro(s) e %2 aviso(s). Primeiro item: %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Testar Preview CTA (Visual + Sino)</source>
+        <source>Não foi possível iniciar a montagem. %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Visual %1s • sino em %2s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cena #%1 • início %2s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sua legenda aparecerá assim no vídeo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 • %2 px • contorno %3 px</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Projeto montado: %1 cenas, %2 músicas, %3 CTA(s) e %4 B-Roll(s). Abrindo a timeline...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4306,6 +4405,34 @@
     </message>
     <message>
         <source>Atualizar Cenas Planejadas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preview ampliado do B-Roll textual</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cena #%1 • %2s • %3 de %4</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Atualize o plano para escolher as cenas que receberão o efeito.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>B-Roll anterior</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ABRIR PREVIEW GRANDE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Próximo B-Roll</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Atualizar Plano</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4513,15 +4640,23 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Confira fonte, cor, contorno, fundo e animação antes de montar.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ABRIR PREVIEW DA LEGENDA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Execute as etapas 1–6 antes de validar, visualizar e montar.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>A narração não pôde ser reproduzida; a prévia visual continuará sem áudio: %1</source>
+        <source>Prévia pronta</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Execute as etapas 1–6 para criar a prévia antes de reproduzir.</source>
+        <source>A narração não pôde ser reproduzida; a prévia visual continuará sem áudio: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4542,10 +4677,6 @@
     </message>
     <message>
         <source>Projeto validado e pronto para visualização.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Validação concluída: consulte as inconsistências abaixo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4633,6 +4764,46 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Abrir Preview Grande do CTA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prévia visual sem narração</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cena #%1: falha no vídeo; o relógio continuará. %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prévia concluída</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Não há cenas no plano para reproduzir. Execute novamente as etapas 1–6.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reproduzindo cena por cena</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Falha</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prévia pausada em %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Continuar Prévia</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reproduzir Prévia</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Normal</source>
         <translation type="unfinished">Normal</translation>
     </message>
@@ -4677,19 +4848,15 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Montagem não iniciada: %1 erro(s), %2 aviso(s). Primeiro item: %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Montando o projeto personalizado na timeline...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Não foi possível iniciar a montagem. Verifique as inconsistências acima.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>FECHAR E VER O PROJETO NA TIMELINE</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Projeto montado com sucesso. Feche esta janela para revisar a timeline.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
