@@ -3737,7 +3737,7 @@ void EditorStateTest::customProjectAssemblyAndUndo()
     QCOMPARE(musicClip.fadeInUs, drift::secondsToUs(0.5));
     QCOMPARE(musicClip.fadeOutUs, drift::secondsToUs(0.75));
     QVERIFY(musicClip.volume.enabled());
-    QVERIFY(qAbs(musicClip.volume.keyframes().constBegin().value()
+    QVERIFY(qAbs(musicClip.volume.keyframes().constBegin().value().value
                  - drift::dbToLinearGain(-14.0)) < 0.000001);
 
     // Test SINGLE-STEP ATOMIC UNDO:
