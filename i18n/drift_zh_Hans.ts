@@ -4113,6 +4113,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Escaneie as cenas antes de distribuir as músicas.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>%1 música(s) distribuída(s) pelas cenas 1–%2.</source>
         <translation type="unfinished"></translation>
     </message>
